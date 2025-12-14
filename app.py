@@ -1,17 +1,16 @@
 """Main Flask application for MergeBlocker GitHub App."""
 import logging
-from flask import Flask, request, jsonify
-from src.config import Config
-from src.handlers.webhook_handler import WebhookHandler
-from src.clients.github_client import GitHubClient
+
+from flask import Flask, jsonify, request
+
 from src.analysis.code_analyzer import CodeAnalyzer
 from src.analysis.review_formatter import ReviewFormatter
+from src.clients.github_client import GitHubClient
+from src.config import Config
+from src.handlers.webhook_handler import WebhookHandler
 
 # Set up logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 # Initialize Flask app
@@ -24,105 +23,100 @@ code_analyzer = CodeAnalyzer()
 review_formatter = ReviewFormatter()
 
 
-@app.route('/', methods=['GET'])
+@app.route("/", methods=["GET"])
 def home():
     """Health check endpoint."""
-    return jsonify({
-        'status': 'ok',
-        'app': 'MergeBlocker',
-        'version': '1.0.0'
-    })
+    return jsonify({"status": "ok", "app": "MergeBlocker", "version": "1.0.0"})
 
 
-@app.route('/webhook', methods=['POST'])
+@app.route("/webhook", methods=["POST"])
 def webhook():
     """Handle GitHub webhook events."""
-    
+
     # Verify signature
     if not webhook_handler.verify_signature(request):
         logger.warning("Invalid webhook signature")
-        return jsonify({'error': 'Invalid signature'}), 401
-    
+        return jsonify({"error": "Invalid signature"}), 401
+
     # Parse event
     event = webhook_handler.parse_event(request)
     if not event:
         logger.warning("Failed to parse event")
-        return jsonify({'error': 'Invalid event'}), 400
-    
+        return jsonify({"error": "Invalid event"}), 400
+
     logger.info(f"Received {event['event_type']} event with action: {event.get('action')}")
-    
+
     # Handle comment commands (e.g., @MergeBlocker review)
     if webhook_handler.is_comment_event(event):
         should_process, reason, commands = webhook_handler.should_process_comment_command(event)
-        if should_process and 'review' in commands:
-            logger.info(f"Processing review command from comment")
+        if should_process and "review" in commands:
+            logger.info("Processing review command from comment")
             pr_info = webhook_handler.extract_pr_info_from_comment(event)
-            
+
             # Need to fetch full PR details from API since comment event doesn't include head_sha
             try:
                 pr_details = github_client.get_pr(
-                    installation_id=pr_info['installation_id'],
-                    repo_full_name=pr_info['repo_full_name'],
-                    pr_number=pr_info['pr_number'],
+                    installation_id=pr_info["installation_id"],
+                    repo_full_name=pr_info["repo_full_name"],
+                    pr_number=pr_info["pr_number"],
                 )
-                
+
                 # Merge PR details with comment info
-                pr_info.update({
-                    'head_sha': pr_details['head']['sha'],
-                    'base_branch': pr_details['base']['ref'],
-                    'head_branch': pr_details['head']['ref'],
-                    'author': pr_details['user']['login'],
-                })
-                
+                pr_info.update(
+                    {
+                        "head_sha": pr_details["head"]["sha"],
+                        "base_branch": pr_details["base"]["ref"],
+                        "head_branch": pr_details["head"]["ref"],
+                        "author": pr_details["user"]["login"],
+                    }
+                )
+
                 logger.info(
                     f"Processing command-triggered review for PR #{pr_info['pr_number']} "
                     f"in {pr_info['repo_full_name']} (SHA: {pr_info['head_sha'][:7]})"
                 )
-                
+
                 process_pr_review(pr_info)
-                return jsonify({'message': 'Review started by command'}), 200
-                
+                return jsonify({"message": "Review started by command"}), 200
+
             except Exception as e:
                 logger.error(f"Error processing command review: {e}", exc_info=True)
-                return jsonify({'error': 'Failed to process command'}), 500
+                return jsonify({"error": "Failed to process command"}), 500
         else:
             logger.info(f"Skipping comment event: {reason}")
-            return jsonify({'message': f'Skipped: {reason}'}), 200
-    
+            return jsonify({"message": f"Skipped: {reason}"}), 200
+
     # Handle PR events (opened, synchronized, etc.)
     should_process, reason = webhook_handler.should_process_pr_event(event)
     if not should_process:
         logger.info(f"Skipping event: {reason}")
-        return jsonify({'message': f'Skipped: {reason}'}), 200
-    
+        return jsonify({"message": f"Skipped: {reason}"}), 200
+
     # Extract PR info
     pr_info = webhook_handler.extract_pr_info(event)
-    logger.info(
-        f"Processing PR #{pr_info['pr_number']} in {pr_info['repo_full_name']} "
-        f"(SHA: {pr_info['head_sha'][:7]})"
-    )
-    
+    logger.info(f"Processing PR #{pr_info['pr_number']} in {pr_info['repo_full_name']} " f"(SHA: {pr_info['head_sha'][:7]})")
+
     # Process PR review asynchronously (in production, use a task queue)
     try:
         process_pr_review(pr_info)
-        return jsonify({'message': 'Review started'}), 200
+        return jsonify({"message": "Review started"}), 200
     except Exception as e:
         logger.error(f"Error processing PR review: {e}", exc_info=True)
-        return jsonify({'error': 'Internal error'}), 500
+        return jsonify({"error": "Internal error"}), 500
 
 
 def process_pr_review(pr_info: dict):
     """
     Process PR review - fetch context, analyze, and post review.
-    
+
     Args:
         pr_info: PR information from webhook
     """
-    installation_id = pr_info['installation_id']
-    repo_full_name = pr_info['repo_full_name']
-    pr_number = pr_info['pr_number']
-    head_sha = pr_info['head_sha']
-    
+    installation_id = pr_info["installation_id"]
+    repo_full_name = pr_info["repo_full_name"]
+    pr_number = pr_info["pr_number"]
+    head_sha = pr_info["head_sha"]
+
     try:
         # Step 1: Create initial check run (optional - for status visibility)
         logger.info(f"Creating initial check run for PR #{pr_number}")
@@ -135,7 +129,7 @@ def process_pr_review(pr_info: dict):
             title="Analyzing code changes...",
             summary="AI code review is in progress. This may take a minute.",
         )
-        
+
         # Step 2: Get PR context
         logger.info(f"Fetching PR context for #{pr_number}")
         pr_context = github_client.get_pr_context(
@@ -143,15 +137,15 @@ def process_pr_review(pr_info: dict):
             repo_full_name=repo_full_name,
             pr_number=pr_number,
         )
-        
+
         # Step 3: Quick deterministic checks
         logger.info(f"Running quick checks for PR #{pr_number}")
-        quick_warnings = code_analyzer.quick_check(pr_context['files'])
-        
+        quick_warnings = code_analyzer.quick_check(pr_context["files"])
+
         # Step 4: AI analysis
         logger.info(f"Running AI analysis for PR #{pr_number}")
         review_result = code_analyzer.analyze_pr(pr_context)
-        
+
         # Step 5: Format review
         logger.info(f"Formatting review for PR #{pr_number}")
         review_body = review_formatter.format_review_comment(
@@ -159,24 +153,23 @@ def process_pr_review(pr_info: dict):
             pr_info=pr_info,
             quick_warnings=quick_warnings,
         )
-        
+
         # Step 6: Post review
-        inline_comments = review_result.get('inline_comments', [])
-        
+        inline_comments = review_result.get("inline_comments", [])
+
         # Format inline comments
         formatted_comments = []
         for comment in inline_comments:
-            formatted_comments.append({
-                'path': comment['path'],
-                'line': comment['line'],
-                'body': review_formatter.format_inline_comment(comment),
-            })
-        
-        logger.info(
-            f"Posting review for PR #{pr_number} "
-            f"({len(formatted_comments)} inline comments)"
-        )
-        
+            formatted_comments.append(
+                {
+                    "path": comment["path"],
+                    "line": comment["line"],
+                    "body": review_formatter.format_inline_comment(comment),
+                }
+            )
+
+        logger.info(f"Posting review for PR #{pr_number} " f"({len(formatted_comments)} inline comments)")
+
         success = github_client.create_review(
             installation_id=installation_id,
             repo_full_name=repo_full_name,
@@ -184,9 +177,9 @@ def process_pr_review(pr_info: dict):
             head_sha=head_sha,
             body=review_body,
             comments=formatted_comments if formatted_comments else None,
-            event='COMMENT',
+            event="COMMENT",
         )
-        
+
         if not success:
             logger.error(f"Failed to post review for PR #{pr_number}")
             # Try posting a simple comment as fallback
@@ -196,14 +189,14 @@ def process_pr_review(pr_info: dict):
                 pr_number=pr_number,
                 body=review_body,
             )
-        
+
         # Step 7: Update check run to completed
         check_summary = review_formatter.format_check_run_summary(
             review_result=review_result,
             pr_info=pr_info,
             quick_warnings=quick_warnings,
         )
-        
+
         github_client.create_check_run(
             installation_id=installation_id,
             repo_full_name=repo_full_name,
@@ -211,15 +204,15 @@ def process_pr_review(pr_info: dict):
             name="AI Code Review",
             status="completed",
             conclusion="success",
-            title=check_summary['title'],
-            summary=check_summary['summary'],
+            title=check_summary["title"],
+            summary=check_summary["summary"],
         )
-        
+
         logger.info(f"Successfully completed review for PR #{pr_number}")
-        
+
     except Exception as e:
         logger.error(f"Error in process_pr_review for PR #{pr_number}: {e}", exc_info=True)
-        
+
         # Post error comment
         try:
             error_comment = review_formatter.format_error_comment(
@@ -232,7 +225,7 @@ def process_pr_review(pr_info: dict):
                 pr_number=pr_number,
                 body=error_comment,
             )
-            
+
             # Update check run to failed
             github_client.create_check_run(
                 installation_id=installation_id,
@@ -248,7 +241,7 @@ def process_pr_review(pr_info: dict):
             logger.error(f"Failed to post error comment: {inner_e}", exc_info=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Validate configuration
     try:
         Config.validate()
@@ -256,7 +249,7 @@ if __name__ == '__main__':
     except ValueError as e:
         logger.error(f"Configuration error: {e}")
         exit(1)
-    
+
     # Start Flask server
     logger.info(f"Starting MergeBlocker on {Config.HOST}:{Config.PORT}")
     app.run(
@@ -264,4 +257,3 @@ if __name__ == '__main__':
         port=Config.PORT,
         debug=Config.DEBUG,
     )
-

@@ -3,18 +3,19 @@
 Все промпты вынесены в отдельный файл для удобства управления и версионирования.
 """
 
-from typing import Dict, List, Any
+from typing import Any, Dict
+
 from src.config import Config
 
 
 class ReviewPrompts:
     """Коллекция промптов для code review."""
-    
+
     # System prompts
     SYSTEM_SMALL_PR = "You are an expert code reviewer. Analyze the code changes and provide detailed, constructive feedback."
-    
+
     SYSTEM_LARGE_PR = "You are an expert code reviewer. Provide a high-level summary for large PRs."
-    
+
     @staticmethod
     def get_large_pr_prompt(pr: Dict[str, Any], stats: Dict[str, Any], file_list: str) -> str:
         """Промпт для анализа большого PR."""
@@ -50,7 +51,7 @@ Format your response as:
 - [recommendation 1]
 - [recommendation 2]
 """
-    
+
     @staticmethod
     def get_detailed_review_prompt(pr: Dict[str, Any], changes_text: str) -> str:
         """Промпт для детального review маленького PR."""
@@ -103,7 +104,7 @@ COMMENT: Your specific comment about this line
 
 Be constructive and specific. Focus on the most important issues.
 """
-    
+
     @staticmethod
     def get_error_response() -> str:
         """Текст ответа при ошибке анализа."""
@@ -116,4 +117,3 @@ Unfortunately, the AI code review encountered an error. Please review this PR ma
 - Ensure API keys are valid
 - Verify the PR is not too large
 """
-

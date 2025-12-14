@@ -1,8 +1,9 @@
 """Pytest fixtures for MergeBlocker tests."""
 
-import pytest
 import os
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
+
+import pytest
 
 
 @pytest.fixture(scope="session")
@@ -21,59 +22,59 @@ def check_env_vars():
 def mock_github_client():
     """Create a mock GitHub client for testing."""
     client = Mock()
-    
+
     # Mock PR context
     client.get_pr_context.return_value = {
-        'pr': {
-            'number': 1,
-            'title': 'Test PR',
-            'body': 'Test description',
-            'state': 'open',
-            'draft': False,
-            'head_sha': 'abc123',
-            'base_branch': 'main',
-            'head_branch': 'feature/test',
-            'author': 'test-user',
-            'labels': [],
-            'created_at': '2024-01-01T00:00:00Z',
-            'updated_at': '2024-01-01T00:00:00Z',
+        "pr": {
+            "number": 1,
+            "title": "Test PR",
+            "body": "Test description",
+            "state": "open",
+            "draft": False,
+            "head_sha": "abc123",
+            "base_branch": "main",
+            "head_branch": "feature/test",
+            "author": "test-user",
+            "labels": [],
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z",
         },
-        'files': [
+        "files": [
             {
-                'filename': 'test.py',
-                'status': 'modified',
-                'additions': 10,
-                'deletions': 5,
-                'changes': 15,
-                'patch': '@@ -1,5 +1,10 @@\n+def test():\n+    pass',
+                "filename": "test.py",
+                "status": "modified",
+                "additions": 10,
+                "deletions": 5,
+                "changes": 15,
+                "patch": "@@ -1,5 +1,10 @@\n+def test():\n+    pass",
             }
         ],
-        'stats': {
-            'total_files': 1,
-            'total_additions': 10,
-            'total_deletions': 5,
-            'total_changes': 15,
+        "stats": {
+            "total_files": 1,
+            "total_additions": 10,
+            "total_deletions": 5,
+            "total_changes": 15,
         },
-        'commits': [],
+        "commits": [],
     }
-    
+
     # Mock PR get
     client.get_pr.return_value = {
-        'number': 1,
-        'title': 'Test PR',
-        'body': 'Test description',
-        'state': 'open',
-        'draft': False,
-        'head': {'sha': 'abc123', 'ref': 'feature/test'},
-        'base': {'ref': 'main'},
-        'user': {'login': 'test-user'},
+        "number": 1,
+        "title": "Test PR",
+        "body": "Test description",
+        "state": "open",
+        "draft": False,
+        "head": {"sha": "abc123", "ref": "feature/test"},
+        "base": {"ref": "main"},
+        "user": {"login": "test-user"},
     }
-    
+
     # Mock review creation
     client.create_review.return_value = True
     client.create_comment.return_value = True
     client.create_check_run.return_value = True
-    
+
     return client
 
 
@@ -81,24 +82,24 @@ def mock_github_client():
 def mock_code_analyzer():
     """Create a mock code analyzer for testing."""
     analyzer = Mock()
-    
+
     # Mock quick check
     analyzer.quick_check.return_value = []
-    
+
     # Mock PR analysis
     analyzer.analyze_pr.return_value = {
-        'summary': 'Test review summary',
-        'inline_comments': [
+        "summary": "Test review summary",
+        "inline_comments": [
             {
-                'path': 'test.py',
-                'line': 5,
-                'severity': 'info',
-                'message': 'Consider adding docstring',
+                "path": "test.py",
+                "line": 5,
+                "severity": "info",
+                "message": "Consider adding docstring",
             }
         ],
-        'is_large_pr': False,
+        "is_large_pr": False,
     }
-    
+
     return analyzer
 
 
@@ -106,35 +107,35 @@ def mock_code_analyzer():
 def sample_pr_event():
     """Sample PR event payload."""
     return {
-        'event_type': 'pull_request',
-        'action': 'opened',
-        'payload': {
-            'pull_request': {
-                'number': 1,
-                'title': 'Test PR',
-                'body': 'Test description',
-                'state': 'open',
-                'draft': False,
-                'head': {
-                    'sha': 'abc123',
-                    'ref': 'feature/test',
+        "event_type": "pull_request",
+        "action": "opened",
+        "payload": {
+            "pull_request": {
+                "number": 1,
+                "title": "Test PR",
+                "body": "Test description",
+                "state": "open",
+                "draft": False,
+                "head": {
+                    "sha": "abc123",
+                    "ref": "feature/test",
                 },
-                'base': {
-                    'ref': 'main',
+                "base": {
+                    "ref": "main",
                 },
-                'user': {
-                    'login': 'test-user',
-                },
-            },
-            'repository': {
-                'full_name': 'owner/repo',
-                'name': 'repo',
-                'owner': {
-                    'login': 'owner',
+                "user": {
+                    "login": "test-user",
                 },
             },
-            'installation': {
-                'id': 12345,
+            "repository": {
+                "full_name": "owner/repo",
+                "name": "repo",
+                "owner": {
+                    "login": "owner",
+                },
+            },
+            "installation": {
+                "id": 12345,
             },
         },
     }
@@ -144,33 +145,32 @@ def sample_pr_event():
 def sample_comment_event():
     """Sample comment event payload with command."""
     return {
-        'event_type': 'issue_comment',
-        'action': 'created',
-        'payload': {
-            'issue': {
-                'number': 1,
-                'title': 'Test PR',
-                'body': 'Test description',
-                'state': 'open',
-                'pull_request': {},  # Indicates this is a PR comment
+        "event_type": "issue_comment",
+        "action": "created",
+        "payload": {
+            "issue": {
+                "number": 1,
+                "title": "Test PR",
+                "body": "Test description",
+                "state": "open",
+                "pull_request": {},  # Indicates this is a PR comment
             },
-            'comment': {
-                'id': 999,
-                'body': '@MergeBlocker review',
-                'user': {
-                    'login': 'reviewer-user',
+            "comment": {
+                "id": 999,
+                "body": "@MergeBlocker review",
+                "user": {
+                    "login": "reviewer-user",
                 },
             },
-            'repository': {
-                'full_name': 'owner/repo',
-                'name': 'repo',
-                'owner': {
-                    'login': 'owner',
+            "repository": {
+                "full_name": "owner/repo",
+                "name": "repo",
+                "owner": {
+                    "login": "owner",
                 },
             },
-            'installation': {
-                'id': 12345,
+            "installation": {
+                "id": 12345,
             },
         },
     }
-
