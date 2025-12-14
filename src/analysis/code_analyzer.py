@@ -7,7 +7,6 @@ from tenacity import before_sleep_log, retry, retry_if_exception_type, stop_afte
 
 from src.analysis.prompts import ReviewPrompts
 from src.clients.llm_client import LLMClient
-from src.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -182,12 +181,5 @@ Changes: +{file['additions']} -{file['deletions']}
             if file["patch"] and ("TODO" in file["patch"] or "FIXME" in file["patch"]):
                 if "+" in file["patch"]:  # Only in added lines
                     warnings.append(f"📝 TODO/FIXME found in `{file['filename']}`")
-
-        # Check if PR is too large
-        total_changes = sum(f["changes"] for f in files)
-        if total_changes > Config.MAX_LINES_FOR_FULL_REVIEW:
-            warnings.append(
-                f"📊 Large PR: {total_changes} lines changed. " "Consider splitting into smaller PRs for better review."
-            )
 
         return warnings

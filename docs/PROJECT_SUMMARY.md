@@ -159,9 +159,6 @@ ngrok http 8000
 | `GITHUB_PRIVATE_KEY_PATH` | Путь к private key | ./private-key.pem |
 | `GITHUB_WEBHOOK_SECRET` | Секрет для webhooks | - |
 | `ANTHROPIC_API_KEY` | Claude API key | - |
-| `MAX_FILES_FOR_FULL_REVIEW` | Макс. файлов для детального review | 20 |
-| `MAX_LINES_FOR_FULL_REVIEW` | Макс. строк для детального review | 800 |
-| `MAX_INLINE_COMMENTS` | Макс. inline комментариев | 10 |
 | `SKIP_DRAFT_PRS` | Пропускать draft PR | True |
 
 ## 📈 Что анализируется?

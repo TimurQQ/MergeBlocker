@@ -18,9 +18,6 @@ services:
       - PORT=8002
       - HOST=0.0.0.0
       - DEBUG=True
-      - MAX_FILES_FOR_FULL_REVIEW=${MAX_FILES_FOR_FULL_REVIEW:-20}
-      - MAX_LINES_FOR_FULL_REVIEW=${MAX_LINES_FOR_FULL_REVIEW:-800}
-      - MAX_INLINE_COMMENTS=${MAX_INLINE_COMMENTS:-10}
       - SKIP_DRAFT_PRS=${SKIP_DRAFT_PRS:-True}
     volumes:
       - .:/app

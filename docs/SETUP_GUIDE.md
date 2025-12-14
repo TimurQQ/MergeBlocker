@@ -113,10 +113,6 @@ PORT=8000
 HOST=0.0.0.0
 DEBUG=True  # Для разработки оставьте True
 
-# Review Configuration
-MAX_FILES_FOR_FULL_REVIEW=20
-MAX_LINES_FOR_FULL_REVIEW=800
-MAX_INLINE_COMMENTS=10
 SKIP_DRAFT_PRS=True
 ```
 
