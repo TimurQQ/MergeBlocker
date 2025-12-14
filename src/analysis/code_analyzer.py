@@ -91,18 +91,16 @@ class CodeAnalyzer:
         """Build prompt for detailed review with all changed files."""
 
         file_changes = []
-        # Include all files
+        # Include all files with full patches
         for file in files:
             if file["patch"]:
-                # Limit patch size to avoid token overflow
-                patch_preview = file["patch"][:3000]
                 file_changes.append(
                     f"""
 ### File: {file['filename']} ({file['status']})
 Changes: +{file['additions']} -{file['deletions']}
 
 ```diff
-{patch_preview}
+{file['patch']}
 ```
 """
                 )

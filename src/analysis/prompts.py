@@ -18,10 +18,11 @@ Your goal is to help improve code quality while being respectful and educational
         """Промпт для детального review маленького PR."""
         agents_section = ""
         if agents_md:
+            # Include full AGENTS.md (LLM will handle context window)
             agents_section = f"""
 **Project Guidelines (from AGENTS.md):**
 ```
-{agents_md[:3000]}
+{agents_md}
 ```
 
 IMPORTANT: Follow the guidelines from AGENTS.md when reviewing this code.
