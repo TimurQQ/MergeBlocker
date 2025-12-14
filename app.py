@@ -51,7 +51,45 @@ def webhook():
     
     logger.info(f"Received {event['event_type']} event with action: {event.get('action')}")
     
-    # Check if we should process this event
+    # Handle comment commands (e.g., @MergeBlocker review)
+    if webhook_handler.is_comment_event(event):
+        should_process, reason, commands = webhook_handler.should_process_comment_command(event)
+        if should_process and 'review' in commands:
+            logger.info(f"Processing review command from comment")
+            pr_info = webhook_handler.extract_pr_info_from_comment(event)
+            
+            # Need to fetch full PR details from API since comment event doesn't include head_sha
+            try:
+                pr_details = github_client.get_pr(
+                    installation_id=pr_info['installation_id'],
+                    repo_full_name=pr_info['repo_full_name'],
+                    pr_number=pr_info['pr_number'],
+                )
+                
+                # Merge PR details with comment info
+                pr_info.update({
+                    'head_sha': pr_details['head']['sha'],
+                    'base_branch': pr_details['base']['ref'],
+                    'head_branch': pr_details['head']['ref'],
+                    'author': pr_details['user']['login'],
+                })
+                
+                logger.info(
+                    f"Processing command-triggered review for PR #{pr_info['pr_number']} "
+                    f"in {pr_info['repo_full_name']} (SHA: {pr_info['head_sha'][:7]})"
+                )
+                
+                process_pr_review(pr_info)
+                return jsonify({'message': 'Review started by command'}), 200
+                
+            except Exception as e:
+                logger.error(f"Error processing command review: {e}", exc_info=True)
+                return jsonify({'error': 'Failed to process command'}), 500
+        else:
+            logger.info(f"Skipping comment event: {reason}")
+            return jsonify({'message': f'Skipped: {reason}'}), 200
+    
+    # Handle PR events (opened, synchronized, etc.)
     should_process, reason = webhook_handler.should_process_pr_event(event)
     if not should_process:
         logger.info(f"Skipping event: {reason}")

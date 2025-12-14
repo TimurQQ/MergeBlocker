@@ -1,0 +1,60 @@
+[tool.poetry]
+name = "mergeblocker"
+version = "0.1.0"
+description = "AI-powered GitHub App for automatic code review"
+authors = ["TimurQQ"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+flask = "^3.0.0"
+pygithub = "^2.1.1"
+pyjwt = "^2.8.0"
+cryptography = "^41.0.0"
+python-dotenv = "^1.0.0"
+python-decouple = "^3.8"
+langchain = "^0.1.0"
+langchain-openai = "^0.0.2"
+requests = "^2.31.0"
+gunicorn = "^21.2.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.3"
+pytest-cov = "^4.1.0"
+black = "^23.0.0"
+isort = "^5.0.0"
+flake8 = "^6.0.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+extend-exclude = '''
+/(
+    venv/
+    | .venv/
+    | notebooks/
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+skip_glob = ["venv/*", ".venv/*"]
+known_first_party = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+markers = [
+    "integration: marks tests as integration tests (require LLM API key)",
+    "unit: marks tests as unit tests (no external dependencies)",
+]
+

@@ -90,6 +90,40 @@ class GitHubClient:
             'commits': commits,
         }
     
+    def get_pr(self, installation_id: int, repo_full_name: str, pr_number: int) -> Dict[str, Any]:
+        """
+        Get basic Pull Request information.
+        
+        Args:
+            installation_id: GitHub App installation ID
+            repo_full_name: Repository full name (owner/repo)
+            pr_number: Pull Request number
+        
+        Returns:
+            Dictionary containing basic PR details
+        """
+        client = self.get_installation_client(installation_id)
+        repo = client.get_repo(repo_full_name)
+        pr = repo.get_pull(pr_number)
+        
+        return {
+            'number': pr.number,
+            'title': pr.title,
+            'body': pr.body or '',
+            'state': pr.state,
+            'draft': pr.draft,
+            'head': {
+                'sha': pr.head.sha,
+                'ref': pr.head.ref,
+            },
+            'base': {
+                'ref': pr.base.ref,
+            },
+            'user': {
+                'login': pr.user.login,
+            },
+        }
+    
     def create_review(self, installation_id: int, repo_full_name: str,
                      pr_number: int, head_sha: str, body: str,
                      comments: Optional[List[Dict[str, Any]]] = None,

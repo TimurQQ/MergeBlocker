@@ -1,13 +1,20 @@
 """Webhook handler for GitHub events."""
 import hmac
 import hashlib
-from typing import Dict, Any, Optional
+import re
+from typing import Dict, Any, Optional, List
 from flask import Request
 from src.config import Config
 
 
 class WebhookHandler:
     """Handles GitHub webhook events."""
+    
+    # Bot mention patterns for commands
+    BOT_MENTION_PATTERNS = [
+        r'@MergeBlocker\s+review',
+        r'@mergeblocker\s+review',
+    ]
     
     def __init__(self):
         self.secret = Config.GITHUB_WEBHOOK_SECRET
@@ -118,5 +125,110 @@ class WebhookHandler:
             'head_branch': pr['head']['ref'],
             'author': pr['user']['login'],
             'action': event['action'],
+        }
+    
+    def is_comment_event(self, event: Dict[str, Any]) -> bool:
+        """
+        Check if event is a comment event.
+        
+        Args:
+            event: Parsed event dictionary
+        
+        Returns:
+            True if this is a comment event
+        """
+        return event['event_type'] == 'issue_comment'
+    
+    def is_pr_comment(self, event: Dict[str, Any]) -> bool:
+        """
+        Check if comment is on a Pull Request (not an Issue).
+        
+        Args:
+            event: Parsed event dictionary
+        
+        Returns:
+            True if comment is on a PR
+        """
+        payload = event['payload']
+        issue = payload.get('issue', {})
+        # PR comments have 'pull_request' key in issue object
+        return 'pull_request' in issue
+    
+    def extract_commands_from_comment(self, comment_body: str) -> List[str]:
+        """
+        Extract bot commands from comment text.
+        
+        Args:
+            comment_body: Text of the comment
+        
+        Returns:
+            List of commands found (e.g., ['review'])
+        """
+        commands = []
+        for pattern in self.BOT_MENTION_PATTERNS:
+            if re.search(pattern, comment_body, re.IGNORECASE):
+                commands.append('review')
+                break
+        return commands
+    
+    def should_process_comment_command(self, event: Dict[str, Any]) -> tuple[bool, str, List[str]]:
+        """
+        Determine if we should process this comment as a command.
+        
+        Args:
+            event: Parsed event dictionary
+        
+        Returns:
+            Tuple of (should_process, reason, commands_list)
+        """
+        if not self.is_comment_event(event):
+            return False, "Not a comment event", []
+        
+        action = event['action']
+        if action != 'created':
+            return False, f"Comment action '{action}' is not 'created'", []
+        
+        if not self.is_pr_comment(event):
+            return False, "Comment is not on a Pull Request", []
+        
+        payload = event['payload']
+        comment = payload.get('comment', {})
+        comment_body = comment.get('body', '')
+        
+        commands = self.extract_commands_from_comment(comment_body)
+        if not commands:
+            return False, "No bot commands found in comment", []
+        
+        return True, "OK", commands
+    
+    def extract_pr_info_from_comment(self, event: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Extract PR information from comment event.
+        
+        Args:
+            event: Parsed event dictionary
+        
+        Returns:
+            Dictionary with PR details
+        """
+        payload = event['payload']
+        issue = payload['issue']  # In comment events, PR is represented as issue
+        repo = payload['repository']
+        installation = payload['installation']
+        comment = payload['comment']
+        
+        return {
+            'installation_id': installation['id'],
+            'repo_full_name': repo['full_name'],
+            'repo_name': repo['name'],
+            'repo_owner': repo['owner']['login'],
+            'pr_number': issue['number'],
+            'pr_title': issue['title'],
+            'pr_body': issue.get('body', ''),
+            'pr_state': issue['state'],
+            'pr_draft': issue.get('draft', False),
+            'comment_id': comment['id'],
+            'comment_author': comment['user']['login'],
+            'action': 'command_review',  # Custom action for command-triggered review
         }
 
