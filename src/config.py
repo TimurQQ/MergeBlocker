@@ -14,11 +14,16 @@ class Config:
     GITHUB_PRIVATE_KEY_PATH = os.getenv('GITHUB_PRIVATE_KEY_PATH', './private-key.pem')
     GITHUB_WEBHOOK_SECRET = os.getenv('GITHUB_WEBHOOK_SECRET')
     
-    # LLM Settings
-    ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
+    # LLM Settings (OpenRouter-compatible API)
+    LLM_API_KEY = os.getenv('LLM_API_KEY')
+    LLM_API_BASE_URL = os.getenv('LLM_API_BASE_URL', 'https://openrouter.ai/api/v1')
+    LLM_MODEL = os.getenv('LLM_MODEL', 'eliza-Internal-DeepSeek-V3-1-Terminus')
+    LLM_TEMPERATURE = float(os.getenv('LLM_TEMPERATURE', '0.3'))
+    LLM_MAX_TOKENS = int(os.getenv('LLM_MAX_TOKENS', '4000'))
+    LLM_TIMEOUT = int(os.getenv('LLM_TIMEOUT', '180'))
     
     # Server Settings
-    PORT = int(os.getenv('PORT', 8000))
+    PORT = int(os.getenv('PORT', 8002))
     HOST = os.getenv('HOST', '0.0.0.0')
     DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
     
@@ -42,7 +47,7 @@ class Config:
         required = {
             'GITHUB_APP_ID': cls.GITHUB_APP_ID,
             'GITHUB_WEBHOOK_SECRET': cls.GITHUB_WEBHOOK_SECRET,
-            'ANTHROPIC_API_KEY': cls.ANTHROPIC_API_KEY,
+            'LLM_API_KEY': cls.LLM_API_KEY,
         }
         
         missing = [key for key, value in required.items() if not value]

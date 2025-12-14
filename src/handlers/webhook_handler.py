@@ -3,7 +3,7 @@ import hmac
 import hashlib
 from typing import Dict, Any, Optional
 from flask import Request
-from config import Config
+from src.config import Config
 
 
 class WebhookHandler:

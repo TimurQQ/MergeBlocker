@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# Генерация .env файла из переменных окружения для MergeBlocker
+# Используется в CI/CD pipeline
+
+set -e
+
+echo "🔧 Генерируем .env файл из переменных окружения..."
+
+cat > .env << EOF
+# GitHub App Configuration
+GITHUB_APP_ID=${GITHUB_APP_ID}
+GITHUB_PRIVATE_KEY_PATH=./private-key.pem
+GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+
+# LLM Configuration (OpenRouter-compatible API)
+LLM_API_KEY=${LLM_API_KEY}
+LLM_API_BASE_URL=${LLM_API_BASE_URL:-https://openrouter.ai/api/v1}
+LLM_MODEL=${LLM_MODEL:-eliza-Internal-DeepSeek-V3-1-Terminus}
+LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.3}
+LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-4000}
+LLM_TIMEOUT=${LLM_TIMEOUT:-180}
+
+# Server Configuration
+PORT=${PORT:-8002}
+HOST=${HOST:-0.0.0.0}
+DEBUG=${DEBUG:-False}
+
+# Review Configuration
+MAX_FILES_FOR_FULL_REVIEW=${MAX_FILES_FOR_FULL_REVIEW:-20}
+MAX_LINES_FOR_FULL_REVIEW=${MAX_LINES_FOR_FULL_REVIEW:-800}
+MAX_INLINE_COMMENTS=${MAX_INLINE_COMMENTS:-10}
+SKIP_DRAFT_PRS=${SKIP_DRAFT_PRS:-True}
+EOF
+
+echo "✅ Файл .env создан"
+

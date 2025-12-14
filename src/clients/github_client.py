@@ -4,7 +4,7 @@ import jwt
 import requests
 from github import Github, GithubIntegration
 from typing import Dict, List, Optional, Any
-from config import Config
+from src.config import Config
 
 
 class GitHubClient:

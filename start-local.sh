@@ -43,11 +43,11 @@ export DEBUG=True
 
 # Run the application
 echo "✅ Starting Flask server..."
-echo "🌐 Server will be available at http://localhost:8000"
-echo "📡 Webhook endpoint: http://localhost:8000/webhook"
+echo "🌐 Server will be available at http://localhost:8002"
+echo "📡 Webhook endpoint: http://localhost:8002/webhook"
 echo ""
 echo "💡 Tip: Use ngrok to expose to the internet:"
-echo "   ngrok http 8000"
+echo "   ngrok http 8002"
 echo ""
 
 python app.py

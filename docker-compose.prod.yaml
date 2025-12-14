@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  mergeblocker:
+    image: ghcr.io/timurqq/mergeblocker:latest
+    ports:
+      - "8002:8002"
+    environment:
+      - GITHUB_APP_ID=${GITHUB_APP_ID}
+      - GITHUB_PRIVATE_KEY_PATH=/app/private-key.pem
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_API_BASE_URL=${LLM_API_BASE_URL}
+      - LLM_MODEL=${LLM_MODEL}
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE}
+      - LLM_MAX_TOKENS=${LLM_MAX_TOKENS}
+      - LLM_TIMEOUT=${LLM_TIMEOUT}
+      - PORT=8002
+      - HOST=0.0.0.0
+      - DEBUG=False
+      - MAX_FILES_FOR_FULL_REVIEW=${MAX_FILES_FOR_FULL_REVIEW:-20}
+      - MAX_LINES_FOR_FULL_REVIEW=${MAX_LINES_FOR_FULL_REVIEW:-800}
+      - MAX_INLINE_COMMENTS=${MAX_INLINE_COMMENTS:-10}
+      - SKIP_DRAFT_PRS=${SKIP_DRAFT_PRS:-True}
+    volumes:
+      # Private key монтируется из файла на хосте
+      - ./private-key.pem:/app/private-key.pem:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+

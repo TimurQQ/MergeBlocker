@@ -1,0 +1,115 @@
+name: Deploy MergeBlocker
+
+permissions:
+  contents: read
+  packages: write
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push test image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/timurqq/mergeblocker:test-${{ github.sha }}
+
+  build:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push production image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true  # Пушим образ в GHCR
+          tags: |
+            ghcr.io/timurqq/mergeblocker:latest
+            ghcr.io/timurqq/mergeblocker:${{ github.sha }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build  # Ждёт завершения build (образ уже в GHCR)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to production server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.MERGEBLOCKER_SERVER_HOST }}
+          username: ${{ secrets.MERGEBLOCKER_SERVER_USER }}
+          key: ${{ secrets.MERGEBLOCKER_SERVER_SSH_KEY }}
+          port: ${{ secrets.MERGEBLOCKER_SERVER_PORT }}
+          script: |
+            set -e  # Прервать выполнение при любой ошибке
+            set -o pipefail  # Прервать если ошибка в пайпе
+
+            cd ${{ secrets.MERGEBLOCKER_SERVER_PROJECT_PATH }}
+
+            # Обновляем код (включая скрипты и docker-compose.prod.yaml)
+            echo "🔄 Pulling latest changes..."
+            git pull origin master || {
+              echo "❌ Failed to pull changes from git"
+              exit 1
+            }
+            echo "✅ Git pull successful"
+
+            # Экспортируем переменные для generate-env.sh
+            export GITHUB_APP_ID="${{ secrets.APP_ID }}"
+            export GITHUB_WEBHOOK_SECRET="${{ secrets.WEBHOOK_SECRET }}"
+            export LLM_API_KEY="${{ secrets.LLM_API_KEY }}"
+            export LLM_API_BASE_URL="${{ secrets.LLM_API_BASE_URL }}"
+            export LLM_MODEL="${{ secrets.LLM_MODEL }}"
+            export PORT="${{ secrets.PORT }}"
+            export HOST="${{ secrets.HOST }}"
+            export DEBUG="${{ secrets.DEBUG }}"
+
+            # Создаем private key из секрета (base64 encoded)
+            echo "🔐 Creating private key file..."
+            echo "${{ secrets.PRIVATE_KEY_BASE64 }}" | base64 -d > private-key.pem
+            chmod 600 private-key.pem
+            echo "✅ Private key created"
+
+            # Логинимся в GHCR для доступа к образам
+            echo "🔐 Logging in to GHCR..."
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin || {
+              echo "❌ Failed to login to GHCR"
+              exit 1
+            }
+            echo "✅ GHCR login successful"
+
+            # Запускаем деплой через готовый скрипт
+            echo "🚀 Starting deployment..."
+            ./deploy.sh || {
+              echo "❌ Deployment failed"
+              exit 1
+            }
+            echo "✅ Deployment completed successfully"
+

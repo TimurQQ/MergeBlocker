@@ -1,11 +1,11 @@
 """Main Flask application for MergeBlocker GitHub App."""
 import logging
 from flask import Flask, request, jsonify
-from config import Config
-from webhook_handler import WebhookHandler
-from github_client import GitHubClient
-from code_analyzer import CodeAnalyzer
-from review_formatter import ReviewFormatter
+from src.config import Config
+from src.handlers.webhook_handler import WebhookHandler
+from src.clients.github_client import GitHubClient
+from src.analysis.code_analyzer import CodeAnalyzer
+from src.analysis.review_formatter import ReviewFormatter
 
 # Set up logging
 logging.basicConfig(
