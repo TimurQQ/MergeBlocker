@@ -1,11 +1,14 @@
 name: Test MergeBlocker
 
 on:
-  push:
-    branches: [ master, main ]
-  pull_request:
-    branches: [ master, main ]
-  workflow_dispatch:
+  workflow_call:
+    secrets:
+      LLM_API_KEY:
+        required: false
+      LLM_API_BASE_URL:
+        required: false
+      LLM_MODEL:
+        required: false
 
 jobs:
   test:
