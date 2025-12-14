@@ -25,14 +25,15 @@ merge-bloker/
 ├── requirements.txt          # 📦 Python зависимости
 ├── .env.example              # 🔧 Пример конфигурации
 ├── .gitignore                # 🚫 Git ignore
-├── run_dev.sh                # 🏃 Скрипт для запуска в dev режиме
-├── Procfile                  # ☁️ Для Heroku deployment
+├── start-local.sh            # 🏃 Скрипт для локального запуска
 ├── Dockerfile                # 🐳 Для Docker deployment
-├── README.md                 # 📖 Полная документация
-├── SETUP_GUIDE.md            # 📚 Детальная инструкция по настройке
-├── QUICK_START.md            # ⚡ Быстрый старт (5 минут)
-├── ARCHITECTURE.md           # 🏗️ Архитектура системы
-└── PROJECT_SUMMARY.md        # 📊 Этот файл
+├── README.md                 # 📖 Основная документация
+└── docs/                     # 📚 Дополнительная документация
+    ├── SETUP_GUIDE.md        # Детальная инструкция по настройке
+    ├── QUICK_START.md        # Быстрый старт (5 минут)
+    ├── ARCHITECTURE.md       # Архитектура системы
+    ├── PROJECT_SUMMARY.md    # Сводка проекта
+    └── NEXT_STEPS.md         # Следующие шаги после установки
 ```
 
 ## 🔑 Ключевые компоненты

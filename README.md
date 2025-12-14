@@ -239,8 +239,7 @@ merge-bloker/
 ├── .gitignore              # Git ignore
 ├── private-key.pem         # GitHub App private key (не в git!)
 ├── Dockerfile              # Docker конфигурация
-├── Procfile                # Heroku deployment
-├── run_dev.sh              # Скрипт для запуска в dev режиме
+├── start-local.sh          # Скрипт для локального запуска
 ├── README.md               # Основная документация
 └── docs/                   # Дополнительная документация
     ├── SETUP_GUIDE.md      # Детальная инструкция по настройке
@@ -281,9 +280,6 @@ DEBUG=True
 ### Heroku
 
 ```bash
-# Создайте Procfile
-echo "web: gunicorn app:app" > Procfile
-
 # Деплой
 heroku create
 heroku config:set GITHUB_APP_ID=...
@@ -291,7 +287,10 @@ heroku config:set GITHUB_WEBHOOK_SECRET=...
 heroku config:set ANTHROPIC_API_KEY=...
 # ... остальные переменные
 
-git push heroku main
+# Создайте Procfile при необходимости
+echo "web: gunicorn app:app --workers 4" > Procfile
+
+git push heroku master
 ```
 
 ### Docker

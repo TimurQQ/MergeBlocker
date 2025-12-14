@@ -141,8 +141,8 @@ INFO - Starting MergeBlocker on 0.0.0.0:8000
 ### Вариант B: Используя скрипт
 
 ```bash
-chmod +x run_dev.sh
-./run_dev.sh
+chmod +x start-local.sh
+./start-local.sh
 ```
 
 ## Шаг 6: Настройте публичный endpoint (для локальной разработки)
