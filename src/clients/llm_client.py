@@ -45,15 +45,20 @@ class LLMClient:
         self.api_key = Config.LLM_API_KEY
         self.base_url = Config.LLM_API_BASE_URL
         
+        # Валидация
+        if not self.api_key:
+            logger.error("❌ LLM_API_KEY is not set!")
+            raise ValueError("LLM_API_KEY environment variable is required")
+        
         # Создаем LangChain LLM
         self.llm = ChatOpenAI(
             model=self.model,
-            openai_api_key=self.api_key,
-            openai_api_base=self.base_url,
+            api_key=self.api_key,  # Используем api_key вместо openai_api_key
+            base_url=self.base_url,  # Используем base_url вместо openai_api_base
             temperature=self.temperature,
             max_tokens=self.max_tokens,
             max_retries=3,  # Встроенные retry LangChain
-            request_timeout=self.timeout,
+            timeout=self.timeout,  # timeout вместо request_timeout
         )
         
         logger.info(
