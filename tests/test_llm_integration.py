@@ -58,8 +58,8 @@ class TestLLMIntegration:
         assert len(review) > 0
         print(f"\n✅ Code review generated: {review[:200]}...")
 
-    def test_small_pr_analysis(self, code_analyzer):
-        """Test: Analyze a small PR (mock data)."""
+    def test_pr_analysis(self, code_analyzer):
+        """Test: Analyze a PR with mock data."""
         pr_context = {
             "pr": {
                 "number": 1,
@@ -92,12 +92,25 @@ class TestLLMIntegration:
 
         result = code_analyzer.analyze_pr(pr_context)
 
+        # Проверяем структуру JSON ответа
         assert result is not None
         assert "summary" in result
+        assert "critical_issues" in result
+        assert "suggestions" in result
         assert "inline_comments" in result
+
+        # Проверяем типы
         assert isinstance(result["summary"], str)
+        assert isinstance(result["critical_issues"], list)
+        assert isinstance(result["suggestions"], list)
         assert isinstance(result["inline_comments"], list)
-        print("\n✅ PR analysis completed")
+
+        # Проверяем что summary не пустой
+        assert len(result["summary"]) > 0
+
+        print("\n✅ PR analysis completed (JSON format)")
         print(f"   Summary length: {len(result['summary'])} chars")
+        print(f"   Critical issues: {len(result['critical_issues'])}")
+        print(f"   Suggestions: {len(result['suggestions'])}")
         print(f"   Inline comments: {len(result['inline_comments'])}")
         print(f"\n   Summary preview: {result['summary'][:200]}...")

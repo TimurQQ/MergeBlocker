@@ -92,6 +92,32 @@ class GitHubClient:
             "commits": commits,
         }
 
+    def get_file_content(
+        self, installation_id: int, repo_full_name: str, file_path: str, ref: Optional[str] = None
+    ) -> Optional[str]:
+        """
+        Get content of a file from repository.
+
+        Args:
+            installation_id: GitHub App installation ID
+            repo_full_name: Repository full name (owner/repo)
+            file_path: Path to file in repository
+            ref: Branch/commit ref (default: default branch)
+
+        Returns:
+            File content as string, or None if file doesn't exist
+        """
+        try:
+            client = self.get_installation_client(installation_id)
+            repo = client.get_repo(repo_full_name)
+            file_content = repo.get_contents(file_path, ref=ref)
+            if isinstance(file_content, list):
+                return None
+            return file_content.decoded_content.decode("utf-8")
+        except Exception as e:
+            print(f"File {file_path} not found or error: {e}")
+            return None
+
     def get_pr(self, installation_id: int, repo_full_name: str, pr_number: int) -> Dict[str, Any]:
         """
         Get basic Pull Request information.

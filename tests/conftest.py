@@ -86,18 +86,18 @@ def mock_code_analyzer():
     # Mock quick check
     analyzer.quick_check.return_value = []
 
-    # Mock PR analysis
+    # Mock PR analysis (JSON format)
     analyzer.analyze_pr.return_value = {
         "summary": "Test review summary",
+        "critical_issues": ["Critical issue 1"],
+        "suggestions": ["Suggestion 1", "Suggestion 2"],
         "inline_comments": [
             {
                 "path": "test.py",
                 "line": 5,
-                "severity": "info",
-                "message": "Consider adding docstring",
+                "body": "Consider adding docstring",
             }
         ],
-        "is_large_pr": False,
     }
 
     return analyzer

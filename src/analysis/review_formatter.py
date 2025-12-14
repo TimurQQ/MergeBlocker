@@ -19,7 +19,10 @@ class ReviewFormatter:
         Returns:
             Formatted markdown comment
         """
-        summary = review_result["summary"]
+        summary = review_result.get("summary", "")
+        critical_issues = review_result.get("critical_issues", [])
+        suggestions = review_result.get("suggestions", [])
+        inline_comments = review_result.get("inline_comments", [])
 
         # Header
         header = f"""# 🤖 AI Code Review
@@ -38,12 +41,25 @@ class ReviewFormatter:
             warnings_section += "\n".join(f"- {warning}" for warning in quick_warnings)
             warnings_section += "\n\n---\n"
 
-        # Main review content
-        review_content = f"\n{summary}\n"
+        # Summary section
+        summary_section = f"\n## 📋 Summary\n\n{summary}\n"
+
+        # Critical issues section
+        critical_section = ""
+        if critical_issues:
+            critical_section = "\n## 🚨 Critical Issues\n\n"
+            critical_section += "\n".join(f"- {issue}" for issue in critical_issues)
+            critical_section += "\n"
+
+        # Suggestions section
+        suggestions_section = ""
+        if suggestions:
+            suggestions_section = "\n## 💡 Suggestions\n\n"
+            suggestions_section += "\n".join(f"{i+1}. {sug}" for i, sug in enumerate(suggestions))
+            suggestions_section += "\n"
 
         # Inline comments notice
         inline_notice = ""
-        inline_comments = review_result.get("inline_comments", [])
         if inline_comments:
             inline_notice = f"""
 
@@ -64,7 +80,7 @@ Please check the "Files changed" tab to see them.
 not replace them. Please use your judgment when addressing these suggestions.</sub>
 """
 
-        return header + warnings_section + review_content + inline_notice + footer
+        return header + warnings_section + summary_section + critical_section + suggestions_section + inline_notice + footer
 
     @staticmethod
     def format_error_comment(error_message: str, pr_info: Dict[str, Any]) -> str:

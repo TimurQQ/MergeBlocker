@@ -138,13 +138,26 @@ def process_pr_review(pr_info: dict):
             pr_number=pr_number,
         )
 
+        # Step 2.5: Try to read AGENTS.md from repository
+        logger.info(f"Attempting to read AGENTS.md for PR #{pr_number}")
+        agents_md_content = github_client.get_file_content(
+            installation_id=installation_id,
+            repo_full_name=repo_full_name,
+            file_path="AGENTS.md",
+            ref=pr_info.get("base_branch", None),
+        )
+        if agents_md_content:
+            logger.info(f"Successfully loaded AGENTS.md ({len(agents_md_content)} chars)")
+        else:
+            logger.info("AGENTS.md not found in repository")
+
         # Step 3: Quick deterministic checks
         logger.info(f"Running quick checks for PR #{pr_number}")
         quick_warnings = code_analyzer.quick_check(pr_context["files"])
 
         # Step 4: AI analysis
         logger.info(f"Running AI analysis for PR #{pr_number}")
-        review_result = code_analyzer.analyze_pr(pr_context)
+        review_result = code_analyzer.analyze_pr(pr_context, agents_md_content=agents_md_content)
 
         # Step 5: Format review
         logger.info(f"Formatting review for PR #{pr_number}")

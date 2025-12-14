@@ -1,9 +1,15 @@
 """Code analyzer using LLM for PR review."""
+import json
+import logging
 from typing import Any, Dict, List
+
+from tenacity import before_sleep_log, retry, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 from src.analysis.prompts import ReviewPrompts
 from src.clients.llm_client import LLMClient
 from src.config import Config
+
+logger = logging.getLogger(__name__)
 
 
 class CodeAnalyzer:
@@ -12,148 +18,137 @@ class CodeAnalyzer:
     def __init__(self):
         self.client = LLMClient()
 
-    def analyze_pr(self, pr_context: Dict[str, Any]) -> Dict[str, Any]:
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_fixed(0),
+        retry=retry_if_exception_type((json.JSONDecodeError, ValueError)),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+    )
+    def analyze_pr(self, pr_context: Dict[str, Any], agents_md_content: str = None) -> Dict[str, Any]:
         """
-        Analyze a Pull Request and generate review.
+        Analyze a Pull Request and generate review with inline comments.
+
+        Retry logic:
+            • JSONDecodeError, ValueError: LLM returned invalid JSON → retry (3 attempts)
+            • No delay between retries (wait_fixed(0))
 
         Args:
             pr_context: Dictionary containing PR details from GitHub
+            agents_md_content: Content of AGENTS.md file from repository (optional)
 
         Returns:
             Dictionary with review summary and inline comments
+
+        Raises:
+            json.JSONDecodeError: If LLM failed to return valid JSON after 3 attempts
         """
-        stats = pr_context["stats"]
-
-        # Determine review strategy based on PR size
-        if (
-            stats["total_files"] > Config.MAX_FILES_FOR_FULL_REVIEW
-            or stats["total_changes"] > Config.MAX_LINES_FOR_FULL_REVIEW
-        ):
-            return self._analyze_large_pr(pr_context)
-        else:
-            return self._analyze_small_pr(pr_context)
-
-    def _analyze_small_pr(self, pr_context: Dict[str, Any]) -> Dict[str, Any]:
-        """Analyze small PR with detailed inline comments."""
         pr = pr_context["pr"]
         files = pr_context["files"]
 
-        # Build prompt with PR context
-        prompt = self._build_review_prompt(pr, files, detailed=True)
+        # Build prompt with PR context and AGENTS.md
+        prompt = self._build_review_prompt(pr, files, agents_md=agents_md_content)
 
-        # Call LLM
+        # Call LLM for detailed analysis
         try:
-            review_text = self.client.generate(user_prompt=prompt, system_prompt=ReviewPrompts.SYSTEM_SMALL_PR)
+            review_text = self.client.generate(user_prompt=prompt, system_prompt=ReviewPrompts.SYSTEM_PROMPT)
 
-            # Parse response into structured format
-            return self._parse_review_response(review_text, files)
+            # Extract JSON from response (removes markdown blocks if present)
+            json_text = self._extract_json_from_response(review_text)
 
-        except Exception as e:
-            print(f"Error calling LLM: {e}")
-            return self._get_error_response()
+            # Parse JSON - if invalid, will trigger retry
+            result = json.loads(json_text)
 
-    def _analyze_large_pr(self, pr_context: Dict[str, Any]) -> Dict[str, Any]:
-        """Analyze large PR with summary only."""
-        pr = pr_context["pr"]
-        files = pr_context["files"]
-        stats = pr_context["stats"]
+            # Validate structure
+            if not isinstance(result, dict):
+                raise ValueError("LLM returned non-dict JSON")
 
-        # For large PRs, focus on high-level overview
-        file_list = self._format_file_list(files)
-        prompt = ReviewPrompts.get_large_pr_prompt(pr, stats, file_list)
+            # Ensure required keys exist
+            if "summary" not in result:
+                raise ValueError("Missing 'summary' in LLM response")
 
-        try:
-            summary = self.client.generate(user_prompt=prompt, system_prompt=ReviewPrompts.SYSTEM_LARGE_PR)
-
+            # Normalize structure
             return {
-                "summary": summary,
-                "inline_comments": [],
-                "is_large_pr": True,
+                "summary": result.get("summary", ""),
+                "critical_issues": result.get("critical_issues", []),
+                "suggestions": result.get("suggestions", []),
+                "inline_comments": result.get("inline_comments", []),
             }
 
+        except json.JSONDecodeError as e:
+            logger.warning(f"⚠️ Invalid JSON from LLM: {e}")
+            logger.debug(f"Response was: {review_text[:500]}")
+            # Re-raise for retry through tenacity
+            raise
+        except ValueError as e:
+            logger.warning(f"⚠️ Invalid structure from LLM: {e}")
+            # Re-raise for retry through tenacity
+            raise
         except Exception as e:
-            print(f"Error calling LLM: {e}")
+            # Other errors (e.g., network issues) - don't retry, return error response
+            logger.error(f"Error calling LLM: {e}")
             return self._get_error_response()
 
-    def _build_review_prompt(self, pr: Dict[str, Any], files: List[Dict[str, Any]], detailed: bool = True) -> str:
-        """Build prompt for detailed review."""
+    def _build_review_prompt(self, pr: Dict[str, Any], files: List[Dict[str, Any]], agents_md: str = None) -> str:
+        """Build prompt for detailed review with all changed files."""
 
         file_changes = []
-        for file in files[:20]:  # Limit to first 20 files
+        # Include all files
+        for file in files:
             if file["patch"]:
+                # Limit patch size to avoid token overflow
+                patch_preview = file["patch"][:3000]
                 file_changes.append(
                     f"""
 ### File: {file['filename']} ({file['status']})
 Changes: +{file['additions']} -{file['deletions']}
 
 ```diff
-{file['patch'][:2000]}
+{patch_preview}
 ```
 """
                 )
 
         changes_text = "\n".join(file_changes)
 
-        return ReviewPrompts.get_detailed_review_prompt(pr, changes_text)
+        return ReviewPrompts.get_detailed_review_prompt(pr, changes_text, agents_md=agents_md)
 
-    def _parse_review_response(self, review_text: str, files: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Parse Claude's response into structured format."""
+    def _extract_json_from_response(self, response: str) -> str:
+        """
+        Extract JSON from LLM response, removing markdown wrappers and comments.
 
-        # Extract inline comments
-        inline_comments = []
-        lines = review_text.split("\n")
+        Handles cases:
+        - ```json {...} ```
+        - ``` {...} ```
+        - {...}
+        - Text before/after JSON
 
-        current_file = None
-        current_line = None
-        current_comment = []
+        Args:
+            response: Raw response from LLM
 
-        for line in lines:
-            if line.startswith("FILE:"):
-                if current_file and current_line and current_comment:
-                    inline_comments.append(
-                        {"path": current_file, "line": current_line, "body": "\n".join(current_comment).strip()}
-                    )
-                current_file = line.replace("FILE:", "").strip()
-                current_line = None
-                current_comment = []
-            elif line.startswith("LINE:"):
-                try:
-                    current_line = int(line.replace("LINE:", "").strip())
-                except ValueError:
-                    current_line = None
-            elif line.startswith("COMMENT:"):
-                current_comment = [line.replace("COMMENT:", "").strip()]
-            elif current_file and current_line and line.strip():
-                if not line.startswith("##") and not line.startswith("FILE:"):
-                    current_comment.append(line)
+        Returns:
+            Cleaned JSON text
+        """
+        text = response.strip()
 
-        # Add last comment
-        if current_file and current_line and current_comment:
-            inline_comments.append({"path": current_file, "line": current_line, "body": "\n".join(current_comment).strip()})
+        # Remove markdown blocks
+        if text.startswith("```"):
+            lines = text.split("\n")
+            # Remove first line (```json or ```)
+            if lines[0].strip() in ["```json", "```"]:
+                lines = lines[1:]
+            # Remove last line if it's ```
+            if lines and lines[-1].strip() == "```":
+                lines = lines[:-1]
+            text = "\n".join(lines).strip()
 
-        # Limit inline comments
-        inline_comments = inline_comments[: Config.MAX_INLINE_COMMENTS]
+        # Find JSON object
+        start_idx = text.find("{")
+        end_idx = text.rfind("}")
 
-        return {
-            "summary": review_text,
-            "inline_comments": inline_comments,
-            "is_large_pr": False,
-        }
+        if start_idx != -1 and end_idx != -1:
+            text = text[start_idx : end_idx + 1]
 
-    def _format_file_list(self, files: List[Dict[str, Any]]) -> str:
-        """Format file list for display."""
-        lines = []
-        for file in files:
-            status_emoji = {
-                "added": "➕",
-                "modified": "📝",
-                "removed": "❌",
-                "renamed": "🔄",
-            }.get(file["status"], "📄")
-
-            lines.append(f"{status_emoji} `{file['filename']}` " f"(+{file['additions']} -{file['deletions']})")
-
-        return "\n".join(lines)
+        return text
 
     def _get_error_response(self) -> Dict[str, Any]:
         """Return error response when analysis fails."""

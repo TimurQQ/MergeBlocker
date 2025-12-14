@@ -95,11 +95,27 @@ pytest tests/test_webhook_handler.py -v
 - `test_llm_client_creation` - Создание LLM клиента
 - `test_simple_generation` - Простая генерация текста
 - `test_code_review_generation` - Генерация code review
-- `test_small_pr_analysis` - Анализ небольшого PR
+- `test_pr_analysis` - Анализ PR с mock данными (JSON format)
 
 Запуск:
 ```bash
 pytest tests/test_llm_integration.py -v -s
+```
+
+### 3. Retry Logic Tests (`test_retry_logic.py`)
+
+Unit тесты для проверки retry механизма при парсинге JSON от LLM.
+
+**Тесты:**
+- `test_valid_json_no_retry` - При валидном JSON retry не происходит
+- `test_invalid_json_with_retry` - При невалидном JSON происходят 3 попытки
+- `test_json_with_markdown_wrapper` - JSON в markdown блоках корректно извлекается
+- `test_retry_succeeds_on_second_attempt` - Успешный retry на 2-й попытке
+- `test_missing_required_field_triggers_retry` - Отсутствие обязательного поля вызывает retry
+
+Запуск:
+```bash
+pytest tests/test_retry_logic.py -v
 ```
 
 ## 💡 Советы
@@ -157,7 +173,10 @@ pip install -r requirements.txt
 LLM интеграционные тесты требуют реальных API запросов:
 - `test_simple_generation` - ~2-5 сек
 - `test_code_review_generation` - ~5-10 сек
-- `test_small_pr_analysis` - ~10-20 сек
+- `test_pr_analysis` - ~10-20 сек
+
+Retry logic тесты используют моки (быстрые):
+- `test_retry_logic.*` - <1 сек каждый
 
 Используйте `-k` для запуска только быстрых unit тестов:
 

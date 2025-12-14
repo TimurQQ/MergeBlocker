@@ -5,22 +5,31 @@
 ## 🎯 Возможности
 
 - ✅ **Автоматический анализ кода** при создании/обновлении PR
-- 💬 **Inline комментарии** к конкретным строкам кода
-- 📝 **Детальные summary** с рекомендациями
-- ⚡ **Быстрые проверки**: поиск секретов, TODO, больших PR
+- 🎯 **Ручной review** по команде `@MergeBlocker review` в комментарии
+- 📋 **Читает AGENTS.md** из репозитория для учета project guidelines
+- 💬 **Inline комментарии** к конкретным строкам кода (без ограничений по количеству)
+- 📝 **Структурированные reviews** с summary, критическими проблемами и рекомендациями
+- 🔄 **JSON формат** с автоматическими retry при ошибках парсинга
+- ⚡ **Быстрые проверки**: поиск секретов, TODO, размер PR
 - 🎨 **Красивые GitHub Check Runs** для визуального статуса
-- 🧠 **Умная стратегия**: детальный анализ для маленьких PR, summary для больших
-- 🔒 **Безопасность**: проверка webhook signature
+- 🧠 **Детальный анализ**: всегда генерирует inline комментарии к коду
+- 🔒 **Безопасность**: проверка webhook signature (HMAC SHA-256)
+- 🧪 **Автотесты**: unit и integration тесты с pytest
+- 🚀 **CI/CD**: автоматический lint, test, build и deploy через GitHub Actions
 
 ## 📋 Требования
 
-- Python 3.9+
+- Python 3.11+
+- Poetry (для dependency management) или pip
 - GitHub App с правами:
-  - Pull requests: Read & Write
-  - Contents: Read
-  - Checks: Read & Write
-  - Metadata: Read
-- LLM API key (OpenRouter-compatible API, same as ML-API)
+  - Pull requests: Read & Write (reviews и inline comments)
+  - Issues: Read & Write (чтение команд в комментариях)
+  - Contents: Read-only (чтение AGENTS.md и файлов)
+  - Checks: Read & Write (статусы Check Runs)
+  - Metadata: Read-only (автоматически)
+- LLM API key (OpenRouter-compatible API):
+  - Model: `eliza-Internal-DeepSeek-V3-1-Terminus`
+  - Same setup as ML-API project
 
 ## 🚀 Быстрый старт
 
@@ -49,18 +58,20 @@ pip install -r requirements.txt
 В разделе **Permissions & events**:
 
 - **Repository permissions:**
-  - Pull requests: `Read & write`
-  - Contents: `Read-only`
-  - Checks: `Read & write`
-  - Commit statuses: `Read & write`
+  - Pull requests: `Read & write` (для создания reviews и inline comments)
+  - Issues: `Read & write` (для чтения команд `@MergeBlocker review`)
+  - Contents: `Read-only` (для чтения `AGENTS.md` и файлов PR)
+  - Checks: `Read & write` (для Check Runs статусов)
+  - Commit statuses: `Read & write` (опционально)
   - Metadata: `Read-only` (автоматически)
 
 #### 3.3. Настройте Events (Webhooks)
 
 В разделе **Subscribe to events**:
 
-- ✅ Pull request
-- ✅ Pull request review (опционально)
+- ✅ **Pull request** (для автоматического review)
+- ✅ **Issue comment** (для команды `@MergeBlocker review`)
+- ⚪ Pull request review (опционально, не используется)
 
 #### 3.4. Получите Private Key
 
@@ -147,19 +158,32 @@ smee --url https://smee.io/abc123 --path /webhook --port 8002
 ### Автоматический review
 
 1. Создайте или обновите Pull Request
-2. GitHub отправит webhook
+2. GitHub отправит webhook (`pull_request` event)
 3. Приложение автоматически:
+   - Читает `AGENTS.md` (если есть в репозитории)
    - Проанализирует изменения
-   - Запустит AI review
-   - Оставит комментарий с результатами
-   - Добавит inline комментарии (если есть)
+   - Запустит AI review с учетом project guidelines
+   - Оставит summary comment в Conversation
+   - Добавит inline комментарии в Files Changed (до 10 штук)
    - Обновит Check Run статус
 
-### Ручной review (опционально)
+### Ручной review
 
-Напишите комментарий в PR: `/review`
+Напишите комментарий в PR:
 
-(Требуется реализация обработчика issue_comment events)
+```
+@MergeBlocker review
+```
+
+Бот автоматически:
+- Получит webhook (`issue_comment` event)
+- Запустит полный анализ PR
+- Оставит review с учетом `AGENTS.md`
+
+**Когда использовать:**
+- ✅ Для повторного анализа после изменений
+- ✅ Если автоматический review не сработал
+- ✅ Для запуска review в старом PR
 
 ## ⚙️ Конфигурация
 
@@ -167,86 +191,234 @@ smee --url https://smee.io/abc123 --path /webhook --port 8002
 
 | Параметр | Описание | По умолчанию |
 |----------|----------|--------------|
-| `MAX_FILES_FOR_FULL_REVIEW` | Макс. файлов для детального review | 20 |
-| `MAX_LINES_FOR_FULL_REVIEW` | Макс. строк для детального review | 800 |
-| `MAX_INLINE_COMMENTS` | Макс. inline комментариев | 10 |
 | `SKIP_DRAFT_PRS` | Пропускать draft PR | True |
 
-## 🏗️ Архитектура
+## 🏗️ Архитектура и процесс работы
+
+### Общий процесс
 
 ```
-┌─────────────────┐
-│   GitHub Event  │
-│   (PR opened)   │
-└────────┬────────┘
-         │
-         │ webhook
-         ▼
-┌─────────────────────────┐
-│   Flask Server          │
-│   (webhook_handler.py)  │
-└────────┬────────────────┘
-         │
-         │ verify + parse
-         ▼
-┌─────────────────────────┐
-│   GitHub Client         │
-│   (github_client.py)    │
-│   - Fetch PR context    │
-│   - Get files & diffs   │
-└────────┬────────────────┘
-         │
-         │ PR context
-         ▼
-┌─────────────────────────┐
-│   Code Analyzer         │
-│   (code_analyzer.py)    │
-│   - Quick checks        │
-│   - AI analysis (Claude)│
-└────────┬────────────────┘
-         │
-         │ review results
-         ▼
-┌─────────────────────────┐
-│   Review Formatter      │
-│   (review_formatter.py) │
-│   - Format summary      │
-│   - Format inline       │
-└────────┬────────────────┘
-         │
-         │ formatted review
-         ▼
-┌─────────────────────────┐
-│   GitHub Client         │
-│   - Post review         │
-│   - Update check run    │
-└─────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                        GitHub Pull Request                               │
+│                                                                           │
+│  1. PR создан/обновлен   OR   2. Комментарий "@MergeBlocker review"    │
+└──────────────────────────────┬──────────────────────────────────────────┘
+                               │ Webhook (POST /webhook)
+                               ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          Flask Server (app.py)                           │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │ 1. Verify webhook signature (HMAC SHA-256)                     │    │
+│  │ 2. Parse event (pull_request или issue_comment)               │    │
+│  │ 3. Check event type (opened/synchronized или command)          │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+└──────────────────────────────┬──────────────────────────────────────────┘
+                               │ process_pr_review(pr_info)
+                               ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    Step 1: Create Check Run                              │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │ GitHub Client → create_check_run()                              │    │
+│  │ Status: "in_progress" ⏳                                        │    │
+│  │ Title: "Analyzing code changes..."                             │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+└──────────────────────────────┬──────────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                Step 2: Fetch PR Context                                  │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │ GitHub Client → get_pr_context()                                │    │
+│  │ • PR metadata (title, body, author, labels)                    │    │
+│  │ • Changed files (filename, status, additions, deletions)       │    │
+│  │ • Patches (diffs for each file)                                │    │
+│  │ • Commits (last 5 for context)                                 │    │
+│  │ • Statistics (total files, lines changed)                      │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+└──────────────────────────────┬──────────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│            Step 2.5: Read AGENTS.md (if exists) 📋                      │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │ GitHub Client → get_file_content("AGENTS.md")                   │    │
+│  │ • Читает guidelines из репозитория                             │    │
+│  │ • Используется в промптах для LLM                              │    │
+│  │ • Позволяет учитывать правила проекта                          │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+└──────────────────────────────┬──────────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│              Step 3: Quick Deterministic Checks ⚡                       │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │ Code Analyzer → quick_check()                                   │    │
+│  │ • Поиск потенциальных секретов (api_key, password, token)     │    │
+│  │ • Поиск TODO/FIXME комментариев                                │    │
+│  │ • Проверка размера PR                                          │    │
+│  │ • Immediate warnings (без LLM)                                 │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+└──────────────────────────────┬──────────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                  Step 4: AI Analysis 🧠                                  │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │ Code Analyzer → analyze_pr(pr_context, agents_md_content)      │    │
+│  │                                                                 │    │
+│  │ Всегда делается детальный анализ:                              │    │
+│  │ • Полный анализ всех изменений (без ограничений)              │    │
+│  │ • Inline комментарии к конкретным строкам (без ограничений)   │    │
+│  │ • Структурированный JSON: summary, critical_issues,            │    │
+│  │   suggestions, inline_comments                                 │    │
+│  │ • Автоматический retry при невалидном JSON (до 3 попыток)     │    │
+│  │                                                                 │    │
+│  │ LLM Client (OpenRouter API):                                   │    │
+│  │ • Model: eliza-Internal-DeepSeek-V3-1-Terminus                 │    │
+│  │ • System Prompt: Expert code reviewer роль                     │    │
+│  │ • User Prompt: PR context + AGENTS.md + changed files          │    │
+│  │                                                                 │    │
+│  │ Анализирует:                                                   │    │
+│  │ • Security issues (secrets, vulnerabilities)                   │    │
+│  │ • Potential bugs and edge cases                                │    │
+│  │ • Code quality and maintainability                             │    │
+│  │ • Performance concerns                                         │    │
+│  │ • Best practices for language/framework                        │    │
+│  │ • Testing coverage                                             │    │
+│  │ • Соответствие AGENTS.md guidelines                            │    │
+│  │                                                                 │    │
+│  │ Возвращает:                                                    │    │
+│  │ {                                                              │    │
+│  │   "summary": "Overview + Critical Issues + Suggestions",      │    │
+│  │   "inline_comments": [                                        │    │
+│  │     {"path": "file.py", "line": 42, "body": "comment"},      │    │
+│  │     ...                                                       │    │
+│  │   ]                                                           │    │
+│  │ }                                                             │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+└──────────────────────────────┬──────────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                Step 5: Format Review 📝                                  │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │ Review Formatter → format_review_comment()                      │    │
+│  │                                                                 │    │
+│  │ Создает красивый markdown comment:                             │    │
+│  │ • Header с emoji и metadata                                    │    │
+│  │ • Quick warnings (если есть)                                   │    │
+│  │ • AI review summary                                            │    │
+│  │ • Inline comments notice                                       │    │
+│  │ • Footer с disclaimer                                          │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+└──────────────────────────────┬──────────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│             Step 6: Post Review with Inline Comments 💬                  │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │ GitHub Client → create_review()                                 │    │
+│  │                                                                 │    │
+│  │ body: formatted review summary                                 │    │
+│  │ comments: [                                                    │    │
+│  │   {                                                            │    │
+│  │     path: "src/api.py",                                       │    │
+│  │     line: 42,                                                 │    │
+│  │     body: "🐛 Potential bug: ..."                             │    │
+│  │   },                                                          │    │
+│  │   ...                                                         │    │
+│  │ ]                                                             │    │
+│  │ event: "COMMENT"                                              │    │
+│  │                                                               │    │
+│  │ Результат в GitHub:                                           │    │
+│  │ ✅ Summary comment в Conversation                            │    │
+│  │ ✅ Inline comments в Files Changed                           │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+└──────────────────────────────┬──────────────────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│              Step 7: Update Check Run ✅                                 │
+│  ┌────────────────────────────────────────────────────────────────┐    │
+│  │ GitHub Client → create_check_run()                              │    │
+│  │ Status: "completed"                                            │    │
+│  │ Conclusion: "success"                                          │    │
+│  │ Title: "✅ Review Completed"                                   │    │
+│  │ Summary: Statistics + warnings                                 │    │
+│  └────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────┘
+
 ```
+
+### Триггеры для code review
+
+1. **Автоматический** (pull_request event):
+   - PR открыт (`opened`)
+   - PR обновлен (`synchronize`)
+   - Пропускаются: `closed`, draft PR (если `SKIP_DRAFT_PRS=True`)
+
+2. **Ручной** (issue_comment event):
+   - Комментарий `@MergeBlocker review` в PR
+   - Запускает полный анализ независимо от предыдущих reviews
 
 ## 📁 Структура проекта
 
 ```
 merge-bloker/
-├── app.py                  # Главный Flask сервер
-├── config.py               # Конфигурация
-├── webhook_handler.py      # Обработка webhooks
-├── github_client.py        # GitHub API client
-├── code_analyzer.py        # AI анализ кода
-├── review_formatter.py     # Форматирование результатов
-├── requirements.txt        # Python зависимости
-├── .env                    # Environment variables (создайте из .env.example)
-├── .env.example            # Пример конфигурации
-├── .gitignore              # Git ignore
-├── private-key.pem         # GitHub App private key (не в git!)
-├── Dockerfile              # Docker конфигурация
-├── start-local.sh          # Скрипт для локального запуска
-├── README.md               # Основная документация
-└── docs/                   # Дополнительная документация
-    ├── SETUP_GUIDE.md      # Детальная инструкция по настройке
-    ├── QUICK_START.md      # Быстрый старт (5 минут)
-    ├── ARCHITECTURE.md     # Архитектура системы
-    ├── PROJECT_SUMMARY.md  # Сводка проекта
-    └── NEXT_STEPS.md       # Следующие шаги после установки
+├── app.py                      # Главный Flask сервер (точка входа)
+├── requirements.txt            # Python зависимости (pip)
+├── pyproject.toml              # Poetry конфигурация и метаданные
+├── poetry.lock                 # Locked версии зависимостей
+├── .env                        # Environment variables (создайте из .env.example)
+├── .env.example                # Пример конфигурации
+├── .gitignore                  # Git ignore
+├── private-key.pem             # GitHub App private key (не в git!)
+│
+├── src/                        # Исходный код приложения
+│   ├── config.py               # Конфигурация и environment variables
+│   │
+│   ├── clients/                # Клиенты для внешних API
+│   │   ├── github_client.py    # GitHub API (PyGithub)
+│   │   └── llm_client.py       # LLM API (OpenRouter-compatible)
+│   │
+│   ├── analysis/               # Анализ кода и форматирование
+│   │   ├── code_analyzer.py    # Главная логика анализа
+│   │   ├── prompts.py          # LLM промпты для review
+│   │   └── review_formatter.py # Форматирование результатов
+│   │
+│   └── handlers/               # Обработчики событий
+│       └── webhook_handler.py  # Парсинг и валидация webhooks
+│
+├── tests/                      # Тесты
+│   ├── conftest.py             # Pytest fixtures
+│   ├── test_webhook_handler.py # Unit тесты WebhookHandler
+│   ├── test_llm_integration.py # Integration тесты LLM
+│   └── README.md               # Документация по тестам
+│
+├── .github/                    # GitHub Actions CI/CD
+│   └── workflows/
+│       ├── deploy.yaml         # Build & Deploy workflow
+│       └── test.yaml           # Lint & Test workflow
+│
+├── Dockerfile                  # Docker образ для production
+├── docker-compose.yaml         # Docker Compose для разработки
+├── docker-compose.prod.yaml    # Docker Compose для production
+├── .dockerignore               # Игнорируемые файлы для Docker
+│
+├── deploy.sh                   # Скрипт деплоя на сервер
+├── generate-env.sh             # Генерация .env из переменных окружения
+├── start-local.sh              # Скрипт для локального запуска
+│
+├── .flake8                     # Конфигурация flake8 linter
+├── README.md                   # Основная документация (вы здесь!)
+│
+└── docs/                       # Дополнительная документация
+    ├── DEPLOYMENT.md           # CI/CD и деплой
+    ├── SETUP_GUIDE.md          # Детальная инструкция по настройке
+    ├── QUICK_START.md          # Быстрый старт (5 минут)
+    ├── ARCHITECTURE.md         # Архитектура системы
+    ├── PROJECT_SUMMARY.md      # Сводка проекта
+    └── NEXT_STEPS.md           # Следующие шаги после установки
 ```
 
 ## 🔧 Разработка
@@ -360,15 +532,17 @@ cp .env.example .env
 
 ### Стратегия анализа
 
-**Small PR** (≤20 файлов, ≤800 строк):
-- Полный анализ всех изменений
-- До 10 inline комментариев
-- Детальные рекомендации
+Для **всех PR** (независимо от размера):
+- ✅ Полный детальный анализ всех изменений (без ограничений по количеству файлов)
+- ✅ Inline комментарии к конкретным строкам кода (без ограничений по количеству)
+- ✅ Структурированный JSON response с retry механизмом
+- ✅ Summary (общая оценка PR)
+- ✅ Critical Issues (критические проблемы безопасности/баги)
+- ✅ Suggestions (рекомендации по улучшению)
+- ✅ Учет guidelines из AGENTS.md (если есть в репозитории)
 
-**Large PR** (>20 файлов или >800 строк):
-- High-level summary
-- Топ рисков
-- Рекомендация разбить на части
+**Примечание**: 
+- LLM возвращает структурированный JSON, при ошибках парсинга автоматически retry (до 3 попыток)
 
 ### Что проверяется
 

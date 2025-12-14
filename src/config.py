@@ -30,9 +30,6 @@ class Config:
     DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
     # Review Settings
-    MAX_FILES_FOR_FULL_REVIEW = int(os.getenv("MAX_FILES_FOR_FULL_REVIEW", 20))
-    MAX_LINES_FOR_FULL_REVIEW = int(os.getenv("MAX_LINES_FOR_FULL_REVIEW", 800))
-    MAX_INLINE_COMMENTS = int(os.getenv("MAX_INLINE_COMMENTS", 10))
     SKIP_DRAFT_PRS = os.getenv("SKIP_DRAFT_PRS", "True").lower() == "true"
 
     @classmethod
