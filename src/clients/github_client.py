@@ -21,7 +21,7 @@ class GitHubClient:
                 print(f"Creating client for installation_id: {installation_id}")
                 print(f"Using GitHub App ID: {self.app_id}")
                 print(f"Private key length: {len(self.private_key)} chars")
-                
+
                 integration = GithubIntegration(self.app_id, self.private_key)
                 access_token = integration.get_access_token(installation_id).token
                 print(f"Successfully obtained access token for installation {installation_id}")

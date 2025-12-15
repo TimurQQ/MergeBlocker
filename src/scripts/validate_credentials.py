@@ -20,52 +20,56 @@ except ImportError:
     sys.exit(1)
 
 
-def main():
-    # Load environment
-    load_dotenv()
-
-    # Check App ID
+def validate_app_id():
+    """Validate GitHub App ID."""
     app_id = os.getenv("GITHUB_APP_ID")
     if not app_id:
         print("❌ GITHUB_APP_ID not set")
         sys.exit(1)
-    
+
     try:
         app_id = int(app_id)
         print(f"✅ App ID: {app_id}")
+        return app_id
     except ValueError:
         print("❌ App ID must be a number")
         sys.exit(1)
 
-    # Check webhook secret
+
+def validate_webhook_secret():
+    """Validate webhook secret."""
     webhook_secret = os.getenv("GITHUB_WEBHOOK_SECRET")
     if not webhook_secret:
         print("❌ GITHUB_WEBHOOK_SECRET not set")
         sys.exit(1)
-    
+
     print(f"✅ Webhook secret: {len(webhook_secret)} chars")
 
-    # Check private key
+
+def validate_private_key():
+    """Validate private key file and format."""
     key_path = Path(os.getenv("GITHUB_PRIVATE_KEY_PATH", "./private-key.pem"))
     if not key_path.exists():
         print(f"❌ Private key file not found: {key_path}")
         sys.exit(1)
-    
+
     print(f"✅ Private key file exists: {key_path}")
-    
-    # Check key format
+
     key_content = key_path.read_text()
     if not key_content.startswith("-----BEGIN RSA PRIVATE KEY-----"):
         print("❌ Invalid private key format (missing header)")
         sys.exit(1)
-    
+
     if not key_content.strip().endswith("-----END RSA PRIVATE KEY-----"):
         print("❌ Invalid private key format (missing footer)")
         sys.exit(1)
-    
-    print("✅ Private key format valid")
 
-    # Test GitHub Integration
+    print("✅ Private key format valid")
+    return key_content
+
+
+def validate_github_integration(app_id, key_content):
+    """Validate GitHub Integration and installations."""
     try:
         integration = GithubIntegration(app_id, key_content)
         print("✅ GitHub Integration created")
@@ -73,16 +77,14 @@ def main():
         print(f"❌ Failed to create GitHub Integration: {e}")
         sys.exit(1)
 
-    # Validate by fetching installations
     try:
         installations = list(integration.get_installations())
         print(f"✅ Found {len(installations)} installation(s)")
-        
+
         if len(installations) == 0:
             print("⚠️  No installations found (app not installed on any repo)")
             sys.exit(1)
-        
-        # Test access token generation
+
         for inst in installations:
             try:
                 integration.get_access_token(inst.id)
@@ -90,12 +92,21 @@ def main():
             except Exception as e:
                 print(f"❌ Failed to generate access token for installation {inst.id}: {e}")
                 sys.exit(1)
-    
+
     except Exception as e:
         print(f"❌ Failed to fetch installations: {e}")
         print("   This usually means App ID or private key is incorrect")
         sys.exit(1)
-    
+
+
+def main():
+    load_dotenv()
+
+    app_id = validate_app_id()
+    validate_webhook_secret()
+    key_content = validate_private_key()
+    validate_github_integration(app_id, key_content)
+
     print("✅ All credentials validated successfully")
     sys.exit(0)
 

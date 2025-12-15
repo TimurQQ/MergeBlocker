@@ -106,13 +106,13 @@ class WebhookHandler:
         payload = event["payload"]
         pr = payload["pull_request"]
         repo = payload["repository"]
-        
+
         # Check if installation exists in payload
         if "installation" not in payload:
             print(f"WARNING: No installation in webhook payload. Payload keys: {payload.keys()}")
             print(f"Full payload (first 500 chars): {str(payload)[:500]}")
             raise ValueError("No installation ID found in webhook payload. Is this a GitHub App webhook?")
-        
+
         installation = payload["installation"]
 
         return {
@@ -219,13 +219,13 @@ class WebhookHandler:
         payload = event["payload"]
         issue = payload["issue"]  # In comment events, PR is represented as issue
         repo = payload["repository"]
-        
+
         # Check if installation exists in payload
         if "installation" not in payload:
             print(f"WARNING: No installation in webhook payload. Payload keys: {payload.keys()}")
             print(f"Full payload (first 500 chars): {str(payload)[:500]}")
             raise ValueError("No installation ID found in webhook payload. Is this a GitHub App webhook?")
-        
+
         installation = payload["installation"]
         comment = payload["comment"]
 
