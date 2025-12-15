@@ -1,4 +1,5 @@
 """Configuration management for MergeBlocker."""
+
 import os
 from pathlib import Path
 

@@ -23,4 +23,3 @@ services:
       - .:/app
       - ./private-key.pem:/app/private-key.pem:ro
     command: ["python", "app.py"]
-

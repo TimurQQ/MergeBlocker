@@ -1,4 +1,5 @@
 """Code analyzer using LLM for PR review."""
+
 import json
 import logging
 from typing import Any, Dict, List

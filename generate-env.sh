@@ -29,4 +29,3 @@ SKIP_DRAFT_PRS=${SKIP_DRAFT_PRS:-True}
 EOF
 
 echo "✅ Файл .env создан"
-

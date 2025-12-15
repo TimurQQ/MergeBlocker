@@ -57,17 +57,17 @@ jobs:
             echo "   Configure it in: Settings → Secrets and variables → Actions"
             exit 1
           fi
-          
+
           if [ -z "${{ secrets.WEBHOOK_SECRET }}" ]; then
             echo "❌ WEBHOOK_SECRET secret is not configured!"
             exit 1
           fi
-          
+
           if [ -z "${{ secrets.PRIVATE_KEY_BASE64 }}" ]; then
             echo "❌ PRIVATE_KEY_BASE64 secret is not configured!"
             exit 1
           fi
-          
+
           # Запускаем валидацию через poetry
           poetry run python src/scripts/validate_credentials.py
 
@@ -239,4 +239,3 @@ jobs:
           # Останавливаем контейнер
           docker stop mergeblocker-test-container || true
           docker rm mergeblocker-test-container || true
-

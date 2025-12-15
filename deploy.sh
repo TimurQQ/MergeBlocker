@@ -72,4 +72,3 @@ echo "💡 Полезные команды:"
 echo "   docker compose -f docker-compose.prod.yaml logs -f    # Просмотр логов"
 echo "   docker compose -f docker-compose.prod.yaml restart    # Перезапуск"
 echo "   docker compose -f docker-compose.prod.yaml down       # Остановка"
-

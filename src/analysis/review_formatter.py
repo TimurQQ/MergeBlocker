@@ -1,4 +1,5 @@
 """Formatter for review comments and summaries."""
+
 from datetime import datetime
 from typing import Any, Dict, List
 

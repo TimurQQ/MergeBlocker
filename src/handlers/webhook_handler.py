@@ -1,4 +1,5 @@
 """Webhook handler for GitHub events."""
+
 import hashlib
 import hmac
 import re

@@ -318,4 +318,3 @@ INFO - Successfully completed review for PR #1
 **Вопросы?** Проверьте документацию или создайте issue в репозитории.
 
 **Успехов!** 💪
-

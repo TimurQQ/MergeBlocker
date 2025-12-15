@@ -293,7 +293,7 @@ ls -la private-key.pem
    server {
        listen 80;
        server_name mergeblocker.yourdomain.com;
-       
+
        location / {
            proxy_pass http://localhost:8002;
            proxy_set_header Host $host;
@@ -342,4 +342,3 @@ upstream mergeblocker {
 ---
 
 **Вопросы?** Создайте issue в репозитории!
-

@@ -205,4 +205,3 @@ pytest --cov=src --cov-report=term --cov-report=html
 ---
 
 **Обновлено:** 2024-12-14
-

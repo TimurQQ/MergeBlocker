@@ -51,4 +51,3 @@ echo "   ngrok http 8002"
 echo ""
 
 python app.py
-

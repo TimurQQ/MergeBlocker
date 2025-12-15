@@ -26,6 +26,7 @@ pytest-cov = "^4.1.0"
 black = "^23.0.0"
 isort = "^5.0.0"
 flake8 = "^6.0.0"
+pre-commit = "^3.5.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -58,4 +59,3 @@ markers = [
     "integration: marks tests as integration tests (require LLM API key)",
     "unit: marks tests as unit tests (no external dependencies)",
 ]
-
