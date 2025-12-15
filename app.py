@@ -93,22 +93,40 @@ def webhook():
             return jsonify({"message": f"Skipped: {reason}"}), 200
 
     # Handle PR events (opened, synchronized, etc.)
-    should_process, reason = webhook_handler.should_process_pr_event(event)
-    if not should_process:
-        logger.info(f"Skipping event: {reason}")
-        return jsonify({"message": f"Skipped: {reason}"}), 200
+    # Instead of auto-reviewing, we just post a welcome comment on PR creation
+    if event.get("event_type") == "pull_request" and event.get("action") == "opened":
+        pr_info = webhook_handler.extract_pr_info(event)
+        logger.info(f"New PR opened: #{pr_info['pr_number']} in {pr_info['repo_full_name']}")
 
-    # Extract PR info
-    pr_info = webhook_handler.extract_pr_info(event)
-    logger.info(f"Processing PR #{pr_info['pr_number']} in {pr_info['repo_full_name']} " f"(SHA: {pr_info['head_sha'][:7]})")
+        try:
+            # Post a welcome comment with instructions
+            welcome_message = (
+                "👋 Hi! I'm MergeBlocker, your AI code review assistant.\n\n"
+                "To start an AI-powered code review, simply comment:\n"
+                "```\n"
+                "@MergeBlocker review\n"
+                "```\n\n"
+                "I'll analyze your changes and provide detailed feedback!"
+            )
 
-    # Process PR review asynchronously (in production, use a task queue)
-    try:
-        process_pr_review(pr_info)
-        return jsonify({"message": "Review started"}), 200
-    except Exception as e:
-        logger.error(f"Error processing PR review: {e}", exc_info=True)
-        return jsonify({"error": "Internal error"}), 500
+            github_client.create_comment(
+                installation_id=pr_info["installation_id"],
+                repo_full_name=pr_info["repo_full_name"],
+                pr_number=pr_info["pr_number"],
+                body=welcome_message,
+            )
+
+            logger.info(f"Posted welcome comment to PR #{pr_info['pr_number']}")
+            return jsonify({"message": "Welcome comment posted"}), 200
+
+        except Exception as e:
+            logger.error(f"Error posting welcome comment: {e}", exc_info=True)
+            return jsonify({"error": "Failed to post welcome comment"}), 500
+
+    # For other PR events (synchronize, etc.), we just skip them
+    # Reviews are only triggered by explicit @MergeBlocker review command
+    logger.info(f"Skipping event: {event.get('event_type')} - {event.get('action')} (reviews only by command)")
+    return jsonify({"message": "Event acknowledged, use @MergeBlocker review to start analysis"}), 200
 
 
 def process_pr_review(pr_info: dict):
