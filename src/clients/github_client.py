@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, List, Optional
 
-from github import Github, GithubIntegration
+from github import Auth, Github, GithubIntegration
 
 from src.config import Config
 
@@ -23,7 +23,8 @@ class GitHubClient:
                 print(f"Using GitHub App ID: {self.app_id}")
                 print(f"Private key length: {len(self.private_key)} chars")
 
-                integration = GithubIntegration(self.app_id, self.private_key)
+                auth = Auth.AppAuth(self.app_id, self.private_key)
+                integration = GithubIntegration(auth=auth)
                 access_token = integration.get_access_token(installation_id).token
                 print(f"Successfully obtained access token for installation {installation_id}")
                 self._installation_clients[installation_id] = Github(access_token)

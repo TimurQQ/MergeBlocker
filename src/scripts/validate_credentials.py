@@ -14,7 +14,7 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
-    from github import GithubIntegration
+    from github import Auth, GithubIntegration
 except ImportError:
     print("❌ Required packages not installed: PyGithub, python-dotenv")
     sys.exit(1)
@@ -71,7 +71,8 @@ def validate_private_key():
 def validate_github_integration(app_id, key_content):
     """Validate GitHub Integration and installations."""
     try:
-        integration = GithubIntegration(app_id, key_content)
+        auth = Auth.AppAuth(app_id, key_content)
+        integration = GithubIntegration(auth=auth)
         print("✅ GitHub Integration created")
     except Exception as e:
         print(f"❌ Failed to create GitHub Integration: {e}")
