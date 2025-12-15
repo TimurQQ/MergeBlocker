@@ -9,8 +9,73 @@ on:
         required: false
       LLM_MODEL:
         required: false
+      APP_ID:
+        required: false
+      WEBHOOK_SECRET:
+        required: false
+      PRIVATE_KEY_BASE64:
+        required: false
 
 jobs:
+  validate-credentials:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        run: |
+          poetry install --no-root
+
+      - name: Create .env file
+        run: |
+          cat > .env << EOF
+          GITHUB_APP_ID=${{ secrets.APP_ID }}
+          GITHUB_WEBHOOK_SECRET=${{ secrets.WEBHOOK_SECRET }}
+          GITHUB_PRIVATE_KEY_PATH=./private-key.pem
+          EOF
+
+      - name: Create private key file
+        run: |
+          echo "${{ secrets.PRIVATE_KEY_BASE64 }}" | base64 -d > private-key.pem
+          chmod 600 private-key.pem
+
+      - name: Validate GitHub App credentials
+        run: |
+          # Проверяем наличие обязательных секретов
+          if [ -z "${{ secrets.APP_ID }}" ]; then
+            echo "❌ APP_ID secret is not configured!"
+            echo "   Configure it in: Settings → Secrets and variables → Actions"
+            exit 1
+          fi
+          
+          if [ -z "${{ secrets.WEBHOOK_SECRET }}" ]; then
+            echo "❌ WEBHOOK_SECRET secret is not configured!"
+            exit 1
+          fi
+          
+          if [ -z "${{ secrets.PRIVATE_KEY_BASE64 }}" ]; then
+            echo "❌ PRIVATE_KEY_BASE64 secret is not configured!"
+            exit 1
+          fi
+          
+          # Запускаем валидацию через poetry
+          poetry run python src/scripts/validate_credentials.py
+
+      - name: Cleanup sensitive files
+        if: always()
+        run: |
+          rm -f .env private-key.pem
+
   lint:
     runs-on: ubuntu-latest
     steps:

@@ -52,6 +52,9 @@ def webhook():
         if should_process and "review" in commands:
             logger.info("Processing review command from comment")
             pr_info = webhook_handler.extract_pr_info_from_comment(event)
+            
+            logger.info(f"Extracted PR info - installation_id: {pr_info.get('installation_id')}, "
+                       f"repo: {pr_info.get('repo_full_name')}, PR: {pr_info.get('pr_number')}")
 
             # Need to fetch full PR details from API since comment event doesn't include head_sha
             try:

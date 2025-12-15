@@ -17,9 +17,20 @@ class GitHubClient:
     def get_installation_client(self, installation_id: int) -> Github:
         """Get or create a GitHub client for a specific installation."""
         if installation_id not in self._installation_clients:
-            integration = GithubIntegration(self.app_id, self.private_key)
-            access_token = integration.get_access_token(installation_id).token
-            self._installation_clients[installation_id] = Github(access_token)
+            try:
+                print(f"Creating client for installation_id: {installation_id}")
+                print(f"Using GitHub App ID: {self.app_id}")
+                print(f"Private key length: {len(self.private_key)} chars")
+                
+                integration = GithubIntegration(self.app_id, self.private_key)
+                access_token = integration.get_access_token(installation_id).token
+                print(f"Successfully obtained access token for installation {installation_id}")
+                self._installation_clients[installation_id] = Github(access_token)
+            except Exception as e:
+                print(f"Error creating installation client: {e}")
+                print(f"App ID: {self.app_id}")
+                print(f"Installation ID: {installation_id}")
+                raise
 
         return self._installation_clients[installation_id]
 

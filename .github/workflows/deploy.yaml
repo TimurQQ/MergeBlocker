@@ -17,6 +17,9 @@ jobs:
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
       LLM_API_BASE_URL: ${{ secrets.LLM_API_BASE_URL }}
       LLM_MODEL: ${{ secrets.LLM_MODEL }}
+      APP_ID: ${{ secrets.APP_ID }}
+      WEBHOOK_SECRET: ${{ secrets.WEBHOOK_SECRET }}
+      PRIVATE_KEY_BASE64: ${{ secrets.PRIVATE_KEY_BASE64 }}
 
   build-test:
     runs-on: ubuntu-latest
