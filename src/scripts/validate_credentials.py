@@ -13,8 +13,8 @@ import sys
 from pathlib import Path
 
 try:
-    from github import GithubIntegration
     from dotenv import load_dotenv
+    from github import GithubIntegration
 except ImportError:
     print("❌ Required packages not installed: PyGithub, python-dotenv")
     sys.exit(1)
