@@ -3,6 +3,7 @@
 import logging
 
 from flask import Flask, jsonify, request
+from github import GithubException
 
 from src.analysis.code_analyzer import CodeAnalyzer
 from src.analysis.review_formatter import ReviewFormatter
@@ -30,6 +31,84 @@ def home():
     return jsonify({"status": "ok", "app": "MergeBlocker", "version": "1.0.0"})
 
 
+def handle_review_command(pr_info: dict):
+    """Handle @MergeBlocker review command."""
+    logger.info(
+        f"Extracted PR info - installation_id: {pr_info.get('installation_id')}, "
+        f"repo: {pr_info.get('repo_full_name')}, PR: {pr_info.get('pr_number')}"
+    )
+
+    try:
+        pr_details = github_client.get_pr(
+            installation_id=pr_info["installation_id"],
+            repo_full_name=pr_info["repo_full_name"],
+            pr_number=pr_info["pr_number"],
+        )
+
+        pr_info.update(
+            {
+                "head_sha": pr_details["head"]["sha"],
+                "base_branch": pr_details["base"]["ref"],
+                "head_branch": pr_details["head"]["ref"],
+                "author": pr_details["user"]["login"],
+            }
+        )
+
+        logger.info(
+            f"Processing command-triggered review for PR #{pr_info['pr_number']} "
+            f"in {pr_info['repo_full_name']} (SHA: {pr_info['head_sha'][:7]})"
+        )
+
+        process_pr_review(pr_info)
+        return jsonify({"message": "Review started by command"}), 200
+
+    except GithubException as e:
+        if e.status == 401:
+            error_msg = (
+                f"GitHub App not installed in {pr_info['repo_full_name']} "
+                f"(installation_id: {pr_info['installation_id']}). "
+                f"Install at: https://github.com/apps/{Config.GITHUB_APP_NAME}"
+            )
+            logger.error(error_msg)
+            return jsonify({"error": "GitHub App not installed in repository"}), 403
+        else:
+            logger.error(f"GitHub API error: {e}", exc_info=True)
+            return jsonify({"error": f"GitHub API error: {e.status}"}), 500
+
+    except Exception as e:
+        logger.error(f"Error processing command review: {e}", exc_info=True)
+        return jsonify({"error": "Failed to process command"}), 500
+
+
+def handle_pr_opened(pr_info: dict):
+    """Handle PR opened event - post welcome comment."""
+    logger.info(f"New PR opened: #{pr_info['pr_number']} in {pr_info['repo_full_name']}")
+
+    try:
+        welcome_message = (
+            "👋 Hi! I'm MergeBlocker, your AI code review assistant.\n\n"
+            "To start an AI-powered code review, simply comment:\n"
+            "```\n"
+            "@MergeBlocker review\n"
+            "```\n\n"
+            "I'll analyze your changes and provide detailed feedback!"
+        )
+
+        github_client.create_comment(
+            installation_id=pr_info["installation_id"],
+            repo_full_name=pr_info["repo_full_name"],
+            pr_number=pr_info["pr_number"],
+            body=welcome_message,
+        )
+
+        logger.info(f"Posted welcome comment to PR #{pr_info['pr_number']}")
+        return jsonify({"message": "Welcome comment posted"}), 200
+
+    except Exception as e:
+        logger.error(f"Error posting welcome comment: {e}", exc_info=True)
+        return jsonify({"error": "Failed to post welcome comment"}), 500
+
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
     """Handle GitHub webhook events."""
@@ -53,79 +132,18 @@ def webhook():
         if should_process and "review" in commands:
             logger.info("Processing review command from comment")
             pr_info = webhook_handler.extract_pr_info_from_comment(event)
-
-            logger.info(
-                f"Extracted PR info - installation_id: {pr_info.get('installation_id')}, "
-                f"repo: {pr_info.get('repo_full_name')}, PR: {pr_info.get('pr_number')}"
-            )
-
-            # Need to fetch full PR details from API since comment event doesn't include head_sha
-            try:
-                pr_details = github_client.get_pr(
-                    installation_id=pr_info["installation_id"],
-                    repo_full_name=pr_info["repo_full_name"],
-                    pr_number=pr_info["pr_number"],
-                )
-
-                # Merge PR details with comment info
-                pr_info.update(
-                    {
-                        "head_sha": pr_details["head"]["sha"],
-                        "base_branch": pr_details["base"]["ref"],
-                        "head_branch": pr_details["head"]["ref"],
-                        "author": pr_details["user"]["login"],
-                    }
-                )
-
-                logger.info(
-                    f"Processing command-triggered review for PR #{pr_info['pr_number']} "
-                    f"in {pr_info['repo_full_name']} (SHA: {pr_info['head_sha'][:7]})"
-                )
-
-                process_pr_review(pr_info)
-                return jsonify({"message": "Review started by command"}), 200
-
-            except Exception as e:
-                logger.error(f"Error processing command review: {e}", exc_info=True)
-                return jsonify({"error": "Failed to process command"}), 500
+            return handle_review_command(pr_info)
         else:
             logger.info(f"Skipping comment event: {reason}")
             return jsonify({"message": f"Skipped: {reason}"}), 200
 
-    # Handle PR events (opened, synchronized, etc.)
-    # Instead of auto-reviewing, we just post a welcome comment on PR creation
+    # Handle PR opened event - post welcome comment
     if event.get("event_type") == "pull_request" and event.get("action") == "opened":
         pr_info = webhook_handler.extract_pr_info(event)
-        logger.info(f"New PR opened: #{pr_info['pr_number']} in {pr_info['repo_full_name']}")
+        return handle_pr_opened(pr_info)
 
-        try:
-            # Post a welcome comment with instructions
-            welcome_message = (
-                "👋 Hi! I'm MergeBlocker, your AI code review assistant.\n\n"
-                "To start an AI-powered code review, simply comment:\n"
-                "```\n"
-                "@MergeBlocker review\n"
-                "```\n\n"
-                "I'll analyze your changes and provide detailed feedback!"
-            )
-
-            github_client.create_comment(
-                installation_id=pr_info["installation_id"],
-                repo_full_name=pr_info["repo_full_name"],
-                pr_number=pr_info["pr_number"],
-                body=welcome_message,
-            )
-
-            logger.info(f"Posted welcome comment to PR #{pr_info['pr_number']}")
-            return jsonify({"message": "Welcome comment posted"}), 200
-
-        except Exception as e:
-            logger.error(f"Error posting welcome comment: {e}", exc_info=True)
-            return jsonify({"error": "Failed to post welcome comment"}), 500
-
-    # For other PR events (synchronize, etc.), we just skip them
-    # Reviews are only triggered by explicit @MergeBlocker review command
-    logger.info(f"Skipping event: {event.get('event_type')} - {event.get('action')} (reviews only by command)")
+    # For other events, just acknowledge
+    logger.info(f"Skipping event: {event.get('event_type')} - {event.get('action')}")
     return jsonify({"message": "Event acknowledged, use @MergeBlocker review to start analysis"}), 200
 
 

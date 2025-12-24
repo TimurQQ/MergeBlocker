@@ -25,6 +25,19 @@ class GitHubClient:
 
                 auth = Auth.AppAuth(self.app_id, self.private_key)
                 integration = GithubIntegration(auth=auth)
+
+                # Try to list installations for debugging
+                try:
+                    installations = integration.get_installations()
+                    available_ids = [inst.id for inst in installations]
+                    print(f"Available installation IDs: {available_ids}")
+
+                    if installation_id not in available_ids:
+                        print(f"WARNING: installation_id {installation_id} not in available installations!")
+                        print("This means the GitHub App is not installed in this repository.")
+                except Exception as list_error:
+                    print(f"Could not list installations: {list_error}")
+
                 access_token = integration.get_access_token(installation_id).token
                 print(f"Successfully obtained access token for installation {installation_id}")
                 self._installation_clients[installation_id] = Github(access_token)

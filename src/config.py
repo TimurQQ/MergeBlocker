@@ -14,6 +14,7 @@ class Config:
 
     # GitHub App Settings
     GITHUB_APP_ID = os.getenv("GITHUB_APP_ID")
+    GITHUB_APP_NAME = os.getenv("GITHUB_APP_NAME", "mergeblocker")
     GITHUB_PRIVATE_KEY_PATH = os.getenv("GITHUB_PRIVATE_KEY_PATH", "./private-key.pem")
     GITHUB_WEBHOOK_SECRET = os.getenv("GITHUB_WEBHOOK_SECRET")
 
