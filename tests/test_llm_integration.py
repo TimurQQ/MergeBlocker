@@ -6,6 +6,7 @@ from src.analysis.code_analyzer import CodeAnalyzer
 from src.clients.llm_client import LLMClient
 
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 class TestLLMIntegration:
     """Integration tests that require LLM API access."""

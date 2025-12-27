@@ -114,12 +114,15 @@ class LLMClient:
             "Content-Type": "application/json",
         }
 
-        logger.debug(f"📤 Calling Anthropic API (async): {endpoint}")
+        logger.info(f"📤 Calling Anthropic API (async): {endpoint}")
+        logger.info(f"📊 Request params: model={self.model}, max_tokens={self.max_tokens}, timeout={self.timeout}s")
 
         try:
             # Async API call with httpx.AsyncClient
             async with httpx.AsyncClient(timeout=self.timeout, verify=False) as client:
+                logger.info(f"🔄 Sending POST request to {endpoint}...")
                 response = await client.post(endpoint, json=payload, headers=headers)
+                logger.info(f"✅ Received response with status: {response.status_code}")
 
             if response.status_code != 200:
                 error_msg = f"API error {response.status_code}: {response.text}"
@@ -127,7 +130,7 @@ class LLMClient:
                 raise Exception(error_msg)
 
             data = response.json()
-            logger.debug(f"✅ API response received: {data.get('id', 'N/A')}")
+            logger.info(f"✅ API response received: {data.get('id', 'N/A')}")
 
             # Логируем usage
             usage = data.get("usage", {})
@@ -156,7 +159,7 @@ class LLMClient:
                 logger.error("❌ LLM returned empty response")
                 raise ValueError("LLM returned empty response")
 
-            logger.debug(f"✅ LLM response: {len(content)} chars")
+            logger.info(f"✅ LLM response: {len(content)} chars")
             return content
 
         except httpx.TimeoutException:

@@ -146,26 +146,35 @@ Please provide a helpful, specific answer to the user's question. Be concise and
             "You are a helpful code review assistant. "
             "Answer user's questions about code review comments concisely and accurately."
         )
-        reply_text = await code_analyzer.client.generate(user_prompt=conversation_prompt, system_prompt=system_prompt)
-        logger.info(f"LLM generated reply ({len(reply_text)} chars)")
+
+        try:
+            reply_text = await code_analyzer.client.generate(user_prompt=conversation_prompt, system_prompt=system_prompt)
+            logger.info(f"✅ LLM generated reply ({len(reply_text)} chars)")
+        except Exception as llm_error:
+            logger.error(f"❌ LLM generation failed: {llm_error}", exc_info=True)
+            return jsonify({"error": f"LLM error: {str(llm_error)}"}), 500
 
         # Post reply
         logger.info(f"Posting reply to comment {reply_to_id}...")
-        success = await asyncio.to_thread(
-            github_client.create_review_comment_reply,
-            installation["id"],
-            repo["full_name"],
-            pr_number,
-            reply_to_id,
-            f"🤖 {reply_text}",
-        )
+        try:
+            success = await asyncio.to_thread(
+                github_client.create_review_comment_reply,
+                installation["id"],
+                repo["full_name"],
+                pr_number,
+                reply_to_id,
+                f"🤖 {reply_text}",
+            )
 
-        if success:
-            logger.info(f"Posted reply to comment {reply_to_id} in PR #{pr_number}")
-            return jsonify({"message": "Reply posted"}), 200
-        else:
-            logger.error("Failed to post reply")
-            return jsonify({"error": "Failed to post reply"}), 500
+            if success:
+                logger.info(f"✅ Posted reply to comment {reply_to_id} in PR #{pr_number}")
+                return jsonify({"message": "Reply posted"}), 200
+            else:
+                logger.error("❌ Failed to post reply (success=False)")
+                return jsonify({"error": "Failed to post reply"}), 500
+        except Exception as github_error:
+            logger.error(f"❌ GitHub API error: {github_error}", exc_info=True)
+            return jsonify({"error": f"GitHub error: {str(github_error)}"}), 500
 
     except Exception as e:
         logger.error(f"Error handling comment reply: {e}", exc_info=True)
