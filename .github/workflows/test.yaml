@@ -250,9 +250,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build Docker image
-        run: |
-          docker build -t mergeblocker-test .
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image with cache
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true  # Загружаем образ в локальный Docker (для тестов)
+          tags: mergeblocker-test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Test Docker container
         run: |
@@ -266,17 +274,21 @@ jobs:
             mergeblocker-test \
             sh -c "echo 'dummy-key' > /tmp/dummy-key.pem && python app.py" &
 
-          # Ждем запуска
-          sleep 10
+          # Ждем запуска с умной проверкой (max 30s)
+          echo "⏳ Waiting for API to start..."
+          SECONDS=0
+          until curl -sf http://localhost:8002/ > /dev/null 2>&1; do
+            if [ $SECONDS -ge 30 ]; then
+              echo "❌ API не отвечает (timeout 30s)"
+              docker logs mergeblocker-test-container || true
+              exit 1
+            fi
+            echo -n "."
+            sleep 1
+          done
 
-          # Проверяем доступность API
-          if curl -f http://localhost:8002/ > /dev/null 2>&1; then
-            echo "✅ API отвечает"
-          else
-            echo "❌ API не отвечает"
-            docker logs mergeblocker-test-container || true
-            exit 1
-          fi
+          echo ""
+          echo "✅ API отвечает за $SECONDS секунд"
 
           # Останавливаем контейнер
           docker stop mergeblocker-test-container || true
