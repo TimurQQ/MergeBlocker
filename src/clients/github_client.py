@@ -396,7 +396,9 @@ class GitHubClient:
             print(f"Error creating check run: {e}")
             return False
 
-    def create_reaction(self, installation_id: int, repo_full_name: str, comment_id: int, reaction: str) -> bool:
+    def create_reaction(
+        self, installation_id: int, repo_full_name: str, comment_id: int, reaction: str, pr_number: int = None
+    ) -> bool:
         """
         Create reaction on a comment.
 
@@ -405,6 +407,7 @@ class GitHubClient:
             repo_full_name: Repository (owner/repo)
             comment_id: Comment ID
             reaction: One of: +1, -1, laugh, confused, heart, hooray, rocket, eyes
+            pr_number: PR number (required for review comments)
 
         Returns:
             True if successful
@@ -413,11 +416,17 @@ class GitHubClient:
             client = self.get_installation_client(installation_id)
             repo = client.get_repo(repo_full_name)
 
-            # Get comment object
-            issue_comment = repo.get_issue_comment(comment_id)
+            # Get comment object - different methods for review vs issue comments
+            if pr_number:
+                # Review comment (on code lines)
+                pr = repo.get_pull(pr_number)
+                comment = pr.get_review_comment(comment_id)
+            else:
+                # Issue comment (in discussion)
+                comment = repo.get_issue_comment(comment_id)
 
             # Create reaction
-            issue_comment.create_reaction(reaction)
+            comment.create_reaction(reaction)
 
             print(f"✅ Created {reaction} reaction on comment {comment_id}")
             return True

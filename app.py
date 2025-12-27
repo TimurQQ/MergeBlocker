@@ -114,7 +114,9 @@ async def _process_reply_background(event: dict):
 
         # Add "eyes" reaction to show bot is processing
         logger.info(f"Adding 👀 reaction to comment {comment['id']}...")
-        await asyncio.to_thread(github_client.create_reaction, installation["id"], repo["full_name"], comment["id"], "eyes")
+        await asyncio.to_thread(
+            github_client.create_reaction, installation["id"], repo["full_name"], comment["id"], "eyes", pr_number
+        )
 
         # Get parent comment to understand context
         logger.info(f"Fetching parent comment {reply_to_id}...")
