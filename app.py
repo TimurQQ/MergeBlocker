@@ -140,15 +140,27 @@ async def handle_comment_reply(event: dict):
 Please provide a helpful, specific answer to the user's question. Be concise and refer to the code when relevant.
 """
 
-        # Generate response via LLM
-        logger.info("Calling LLM to generate reply...")
+        # Generate response via LLM (quick mode for replies)
+        logger.info("Calling LLM to generate reply (quick mode: 30s timeout, no thinking)...")
         system_prompt = (
             "You are a helpful code review assistant. "
             "Answer user's questions about code review comments concisely and accurately."
         )
 
         try:
-            reply_text = await code_analyzer.client.generate(user_prompt=conversation_prompt, system_prompt=system_prompt)
+            # Use dedicated client with shorter timeout and no thinking for quick replies
+            from src.clients.llm_client import LLMClient
+
+            quick_client = LLMClient(
+                api_key=Config.LLM_API_KEY,
+                base_url=Config.LLM_API_BASE_URL,
+                model=Config.LLM_MODEL,
+                temperature=Config.LLM_TEMPERATURE,
+                max_tokens=4096,  # Shorter responses for quick replies
+                timeout=30,  # 30s timeout for webhook compatibility
+                enable_thinking=False,  # Disable thinking for speed
+            )
+            reply_text = await quick_client.generate(user_prompt=conversation_prompt, system_prompt=system_prompt)
             logger.info(f"✅ LLM generated reply ({len(reply_text)} chars)")
         except Exception as llm_error:
             logger.error(f"❌ LLM generation failed: {llm_error}", exc_info=True)
