@@ -36,13 +36,9 @@ echo "✅ Private key найден"
 echo "🛑 Останавливаем текущие контейнеры..."
 docker compose -f docker-compose.prod.yaml down || true
 
-# Скачиваем последний образ из registry
-echo "📦 Скачиваем последний образ из registry..."
-docker compose -f docker-compose.prod.yaml pull
-
-# Запускаем новые контейнеры
-echo "🚀 Запускаем новые контейнеры..."
-docker compose -f docker-compose.prod.yaml up -d
+# Запускаем новые контейнеры (pull + recreate в одной команде)
+echo "🚀 Запускаем контейнеры с проверкой обновлений..."
+docker compose -f docker-compose.prod.yaml up -d --force-recreate --pull always
 
 # Ждем запуска сервиса
 echo "⏳ Ждем запуска сервиса..."

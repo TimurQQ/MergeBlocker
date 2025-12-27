@@ -9,9 +9,20 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Poetry
+ENV POETRY_VERSION=2.2.1 \
+    POETRY_NO_INTERACTION=1 \
+    POETRY_VIRTUALENVS_IN_PROJECT=false \
+    POETRY_VIRTUALENVS_CREATE=false
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install "poetry==$POETRY_VERSION"
+
+# Copy dependency files
+COPY pyproject.toml poetry.lock* ./
+
+# Install dependencies with Poetry
+RUN --mount=type=cache,target=/root/.cache/pypoetry \
+    poetry install --only main --no-root --no-interaction --no-ansi
 
 # Copy application files
 COPY app.py .
