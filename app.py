@@ -271,10 +271,13 @@ async def webhook():
                 repo = payload["repository"]
                 installation = payload["installation"]
 
-                # Determine if this is a review comment or issue comment
-                pr_number = None
+                # Determine PR number for both review and issue comments
                 if event.get("event_type") == "pull_request_review_comment":
                     pr_number = payload["pull_request"]["number"]
+                elif event.get("event_type") == "issue_comment":
+                    pr_number = payload["issue"]["number"]
+                else:
+                    pr_number = None
 
                 logger.info(f"Adding 👀 reaction to comment {comment['id']}...")
                 await asyncio.to_thread(
