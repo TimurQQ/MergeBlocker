@@ -130,44 +130,46 @@ class LLMClient:
                 request_duration = time.time() - request_start
                 logger.info(f"✅ Received response with status: {response.status_code} (took {request_duration:.2f}s)")
 
-            if response.status_code != 200:
-                error_text = response.text[:500]  # Ограничиваем длину лога
-                error_msg = f"API error {response.status_code}: {error_text}"
-                logger.error(f"❌ {error_msg}")
-                raise Exception(error_msg)
+                if response.status_code != 200:
+                    error_text = response.text[:500]  # Ограничиваем длину лога
+                    error_msg = f"API error {response.status_code}: {error_text}"
+                    logger.error(f"❌ {error_msg}")
+                    raise Exception(error_msg)
 
-            data = response.json()
-            logger.info(f"✅ API response received: {data.get('id', 'N/A')}")
+                data = response.json()
+                logger.info(f"✅ API response received: {data.get('id', 'N/A')}")
 
-            # Логируем usage
-            usage = data.get("usage", {})
-            input_tokens = usage.get("input_tokens", 0)
-            output_tokens = usage.get("output_tokens", 0)
-            logger.info(f"📊 Tokens: input={input_tokens}, output={output_tokens}, " f"total={input_tokens + output_tokens}")
+                # Логируем usage
+                usage = data.get("usage", {})
+                input_tokens = usage.get("input_tokens", 0)
+                output_tokens = usage.get("output_tokens", 0)
+                logger.info(
+                    f"📊 Tokens: input={input_tokens}, output={output_tokens}, " f"total={input_tokens + output_tokens}"
+                )
 
-            # Извлекаем текстовый ответ
-            content_blocks = data.get("content", [])
-            text_parts = []
+                # Извлекаем текстовый ответ
+                content_blocks = data.get("content", [])
+                text_parts = []
 
-            for block in content_blocks:
-                block_type = block.get("type")
+                for block in content_blocks:
+                    block_type = block.get("type")
 
-                if block_type == "text":
-                    text_parts.append(block.get("text", ""))
-                elif block_type == "thinking":
-                    # Thinking логируем, но не включаем в ответ
-                    thinking = block.get("thinking", "")
-                    logger.debug(f"🧠 Thinking: {thinking[:200]}...")
+                    if block_type == "text":
+                        text_parts.append(block.get("text", ""))
+                    elif block_type == "thinking":
+                        # Thinking логируем, но не включаем в ответ
+                        thinking = block.get("thinking", "")
+                        logger.debug(f"🧠 Thinking: {thinking[:200]}...")
 
-            content = "\n".join(text_parts).strip()
+                content = "\n".join(text_parts).strip()
 
-            # Валидация ответа
-            if not content:
-                logger.error("❌ LLM returned empty response")
-                raise ValueError("LLM returned empty response")
+                # Валидация ответа
+                if not content:
+                    logger.error("❌ LLM returned empty response")
+                    raise ValueError("LLM returned empty response")
 
-            logger.info(f"✅ LLM response: {len(content)} chars")
-            return content
+                logger.info(f"✅ LLM response: {len(content)} chars")
+                return content
 
         except httpx.TimeoutException as e:
             logger.error(f"❌ API timeout after {self.timeout}s: {e}", exc_info=True)
