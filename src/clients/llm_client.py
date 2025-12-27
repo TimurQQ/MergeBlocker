@@ -51,6 +51,11 @@ class LLMClient:
         self.enable_thinking = Config.LLM_ENABLE_THINKING
         self.thinking_budget = Config.LLM_THINKING_BUDGET_TOKENS
 
+        # Claude требует temperature = 1.0 для thinking mode
+        if self.enable_thinking and self.temperature != 1.0:
+            logger.warning(f"⚠️ Thinking mode требует temperature=1.0, изменяю с {self.temperature} на 1.0")
+            self.temperature = 1.0
+
         # Валидация
         if not self.api_key:
             logger.error("❌ LLM_API_KEY is not set!")
