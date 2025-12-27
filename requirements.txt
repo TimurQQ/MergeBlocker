@@ -1,4 +1,4 @@
-Quart==0.19.0
+Quart==0.19.9
 PyGithub==2.1.1
 PyJWT==2.8.0
 cryptography==41.0.7

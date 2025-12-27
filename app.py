@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 # Initialize Quart app
 app = Quart(__name__)
+app.config["PROVIDE_AUTOMATIC_OPTIONS"] = True
 
 # Initialize components
 webhook_handler = WebhookHandler()
