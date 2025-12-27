@@ -85,9 +85,16 @@ async def handle_review_command(pr_info: dict):
 
 
 async def handle_comment_reply(event: dict):
-    """Handle reply to bot's comment - continue conversation."""
-    logger.info("Processing reply to bot's comment")
+    """Handle reply to bot's comment - start background processing."""
+    logger.info("Starting reply processing in background")
 
+    # Run reply in background to avoid blocking webhook response
+    asyncio.create_task(_process_reply_background(event))
+    return jsonify({"message": "Reply processing started"}), 202
+
+
+async def _process_reply_background(event: dict):
+    """Background task for processing reply to bot's comment."""
     try:
         payload = event["payload"]
         comment = payload["comment"]
@@ -105,6 +112,10 @@ async def handle_comment_reply(event: dict):
 
         logger.info(f"Reply to comment {reply_to_id} in PR #{pr_number}: {user_question[:100]}")
 
+        # Add "eyes" reaction to show bot is processing
+        logger.info(f"Adding 👀 reaction to comment {comment['id']}...")
+        await asyncio.to_thread(github_client.create_reaction, installation["id"], repo["full_name"], comment["id"], "eyes")
+
         # Get parent comment to understand context
         logger.info(f"Fetching parent comment {reply_to_id}...")
         parent_comment = await asyncio.to_thread(
@@ -113,14 +124,14 @@ async def handle_comment_reply(event: dict):
 
         if not parent_comment:
             logger.error(f"Could not find parent comment {reply_to_id}")
-            return jsonify({"error": "Parent comment not found"}), 404
+            return
 
         logger.info(f"Parent comment found: user={parent_comment['user']}, path={parent_comment['path']}")
 
         # Only respond if parent comment is from bot
         if parent_comment["user"] not in ["MergeBlocker[bot]", "mergeblocker[bot]"]:
             logger.info(f"Parent comment is from {parent_comment['user']}, not bot. Skipping.")
-            return jsonify({"message": "Not a reply to bot"}), 200
+            return
 
         logger.info("Parent comment is from bot, generating reply...")
 
@@ -161,7 +172,7 @@ Please provide a helpful, specific answer to the user's question. Be concise and
             logger.info(f"✅ LLM generated reply ({len(reply_text)} chars)")
         except Exception as llm_error:
             logger.error(f"❌ LLM generation failed: {llm_error}", exc_info=True)
-            return jsonify({"error": f"LLM error: {str(llm_error)}"}), 500
+            return
 
         # Post reply
         logger.info(f"Posting reply to comment {reply_to_id}...")
@@ -177,17 +188,13 @@ Please provide a helpful, specific answer to the user's question. Be concise and
 
             if success:
                 logger.info(f"✅ Posted reply to comment {reply_to_id} in PR #{pr_number}")
-                return jsonify({"message": "Reply posted"}), 200
             else:
                 logger.error("❌ Failed to post reply (success=False)")
-                return jsonify({"error": "Failed to post reply"}), 500
         except Exception as github_error:
             logger.error(f"❌ GitHub API error: {github_error}", exc_info=True)
-            return jsonify({"error": f"GitHub error: {str(github_error)}"}), 500
 
     except Exception as e:
-        logger.error(f"Error handling comment reply: {e}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
+        logger.error(f"Error in background reply processing: {e}", exc_info=True)
 
 
 async def handle_pr_opened(pr_info: dict):

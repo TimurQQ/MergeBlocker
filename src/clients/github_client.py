@@ -395,3 +395,34 @@ class GitHubClient:
         except Exception as e:
             print(f"Error creating check run: {e}")
             return False
+
+    def create_reaction(self, installation_id: int, repo_full_name: str, comment_id: int, reaction: str) -> bool:
+        """
+        Create reaction on a comment.
+
+        Args:
+            installation_id: GitHub App installation ID
+            repo_full_name: Repository (owner/repo)
+            comment_id: Comment ID
+            reaction: One of: +1, -1, laugh, confused, heart, hooray, rocket, eyes
+
+        Returns:
+            True if successful
+        """
+        try:
+            client = self.get_installation_client(installation_id)
+            repo = client.get_repo(repo_full_name)
+
+            # Get comment object
+            issue_comment = repo.get_issue_comment(comment_id)
+
+            # Create reaction
+            issue_comment.create_reaction(reaction)
+
+            print(f"✅ Created {reaction} reaction on comment {comment_id}")
+            return True
+
+        except Exception as e:
+            print(f"❌ Error creating reaction: {e}")
+            traceback.print_exc()
+            return False
