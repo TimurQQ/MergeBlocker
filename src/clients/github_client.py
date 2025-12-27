@@ -286,10 +286,13 @@ class GitHubClient:
             Dictionary with comment details or None if not found
         """
         try:
+            print(f"Getting review comment {comment_id} from PR #{pr_number} in {repo_full_name}")
             client = self.get_installation_client(installation_id)
             repo = client.get_repo(repo_full_name)
-            # Use repo.get_pull_request_comment() as per PyGithub docs
-            comment = repo.get_pull(pr_number).get_review_comment(comment_id)
+            pr = repo.get_pull(pr_number)
+            print(f"Got PR #{pr_number}, fetching comment {comment_id}...")
+            comment = pr.get_review_comment(comment_id)
+            print(f"Successfully retrieved comment {comment_id}")
 
             return {
                 "id": comment.id,
@@ -327,16 +330,22 @@ class GitHubClient:
             True if successful
         """
         try:
+            print(f"Creating reply to comment {comment_id} in PR #{pr_number}")
             client = self.get_installation_client(installation_id)
             repo = client.get_repo(repo_full_name)
             pr = repo.get_pull(pr_number)
 
             # Create reply to review comment
+            print(f"Posting reply (body length: {len(body)} chars)...")
             pr.create_review_comment_reply(comment_id, body)
+            print(f"Successfully posted reply to comment {comment_id}")
             return True
 
         except Exception as e:
             print(f"Error creating review comment reply: {e}")
+            import traceback
+
+            traceback.print_exc()
             return False
 
     def create_check_run(

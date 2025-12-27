@@ -105,6 +105,7 @@ async def handle_comment_reply(event: dict):
         logger.info(f"Reply to comment {reply_to_id} in PR #{pr_number}: {user_question[:100]}")
 
         # Get parent comment to understand context
+        logger.info(f"Fetching parent comment {reply_to_id}...")
         parent_comment = await asyncio.to_thread(
             github_client.get_review_comment, installation["id"], repo["full_name"], pr_number, reply_to_id
         )
@@ -113,10 +114,14 @@ async def handle_comment_reply(event: dict):
             logger.error(f"Could not find parent comment {reply_to_id}")
             return jsonify({"error": "Parent comment not found"}), 404
 
+        logger.info(f"Parent comment found: user={parent_comment['user']}, path={parent_comment['path']}")
+
         # Only respond if parent comment is from bot
         if parent_comment["user"] not in ["MergeBlocker[bot]", "mergeblocker[bot]"]:
             logger.info(f"Parent comment is from {parent_comment['user']}, not bot. Skipping.")
             return jsonify({"message": "Not a reply to bot"}), 200
+
+        logger.info("Parent comment is from bot, generating reply...")
 
         # Build prompt with conversation history
         conversation_prompt = f"""User asked a follow-up question about this code review comment:
@@ -136,13 +141,16 @@ Please provide a helpful, specific answer to the user's question. Be concise and
 """
 
         # Generate response via LLM
+        logger.info("Calling LLM to generate reply...")
         system_prompt = (
             "You are a helpful code review assistant. "
             "Answer user's questions about code review comments concisely and accurately."
         )
         reply_text = await code_analyzer.client.generate(user_prompt=conversation_prompt, system_prompt=system_prompt)
+        logger.info(f"LLM generated reply ({len(reply_text)} chars)")
 
         # Post reply
+        logger.info(f"Posting reply to comment {reply_to_id}...")
         success = await asyncio.to_thread(
             github_client.create_review_comment_reply,
             installation["id"],
