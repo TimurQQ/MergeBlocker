@@ -27,10 +27,24 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Cache Poetry installation
+        uses: actions/cache@v3
+        with:
+          path: ~/.local
+          key: poetry-${{ runner.os }}-2.2.1  # Версия Poetry из установщика
+
       - name: Install Poetry
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
           echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pypoetry
+          key: poetry-deps-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            poetry-deps-${{ runner.os }}-
 
       - name: Install dependencies
         run: |
@@ -86,15 +100,28 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Cache Poetry installation
+        uses: actions/cache@v3
+        with:
+          path: ~/.local
+          key: poetry-${{ runner.os }}-2.2.1  # Версия Poetry из установщика
+
       - name: Install Poetry
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pypoetry
+          key: poetry-deps-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            poetry-deps-${{ runner.os }}-
+
       - name: Install dependencies
         run: |
           poetry install --no-root
-          poetry run pip install flake8 black isort
 
       - name: Lint with flake8
         run: |
@@ -125,10 +152,24 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Cache Poetry installation
+        uses: actions/cache@v3
+        with:
+          path: ~/.local
+          key: poetry-${{ runner.os }}-2.2.1  # Версия Poetry из установщика
+
       - name: Install Poetry
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
           echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Cache Poetry dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pypoetry
+          key: poetry-deps-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            poetry-deps-${{ runner.os }}-
 
       - name: Install dependencies
         run: |
