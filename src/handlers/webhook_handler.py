@@ -5,7 +5,7 @@ import hmac
 import re
 from typing import Any, Dict, List, Optional
 
-from flask import Request
+from quart import Request
 
 from src.config import Config
 
@@ -22,12 +22,12 @@ class WebhookHandler:
     def __init__(self):
         self.secret = Config.GITHUB_WEBHOOK_SECRET
 
-    def verify_signature(self, request: Request) -> bool:
+    async def verify_signature(self, request: Request) -> bool:
         """
         Verify that the webhook request came from GitHub.
 
         Args:
-            request: Flask request object
+            request: Quart request object
 
         Returns:
             True if signature is valid, False otherwise
@@ -37,18 +37,19 @@ class WebhookHandler:
             return False
 
         # Calculate expected signature
-        mac = hmac.new(self.secret.encode(), msg=request.data, digestmod=hashlib.sha256)
+        request_data = await request.get_data()
+        mac = hmac.new(self.secret.encode(), msg=request_data, digestmod=hashlib.sha256)
         expected_signature = "sha256=" + mac.hexdigest()
 
         # Compare signatures
         return hmac.compare_digest(signature, expected_signature)
 
-    def parse_event(self, request: Request) -> Optional[Dict[str, Any]]:
+    async def parse_event(self, request: Request) -> Optional[Dict[str, Any]]:
         """
         Parse webhook event from request.
 
         Args:
-            request: Flask request object
+            request: Quart request object
 
         Returns:
             Dictionary with event details or None if invalid
@@ -57,7 +58,7 @@ class WebhookHandler:
         if not event_type:
             return None
 
-        payload = request.get_json()
+        payload = await request.get_json()
         if not payload:
             return None
 

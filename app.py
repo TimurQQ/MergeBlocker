@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 # Initialize Quart app
 app = Quart(__name__)
-app.config["PROVIDE_AUTOMATIC_OPTIONS"] = True
 
 # Initialize components
 webhook_handler = WebhookHandler()
@@ -119,12 +118,12 @@ async def webhook():
     """Handle GitHub webhook events."""
 
     # Verify signature
-    if not webhook_handler.verify_signature(request):
+    if not await webhook_handler.verify_signature(request):
         logger.warning("Invalid webhook signature")
         return jsonify({"error": "Invalid signature"}), 401
 
     # Parse event
-    event = webhook_handler.parse_event(request)
+    event = await webhook_handler.parse_event(request)
     if not event:
         logger.warning("Failed to parse event")
         return jsonify({"error": "Invalid event"}), 400
