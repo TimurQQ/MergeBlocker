@@ -114,18 +114,23 @@ class LLMClient:
             "Content-Type": "application/json",
         }
 
+        import time
+
         logger.info(f"📤 Calling Anthropic API (async): {endpoint}")
         logger.info(f"📊 Request params: model={self.model}, max_tokens={self.max_tokens}, timeout={self.timeout}s")
 
+        request_start = time.time()
         try:
             # Async API call with httpx.AsyncClient
             async with httpx.AsyncClient(timeout=self.timeout, verify=False) as client:
                 logger.info(f"🔄 Sending POST request to {endpoint}...")
                 response = await client.post(endpoint, json=payload, headers=headers)
-                logger.info(f"✅ Received response with status: {response.status_code}")
+                request_duration = time.time() - request_start
+                logger.info(f"✅ Received response with status: {response.status_code} (took {request_duration:.2f}s)")
 
             if response.status_code != 200:
-                error_msg = f"API error {response.status_code}: {response.text}"
+                error_text = response.text[:500]  # Ограничиваем длину лога
+                error_msg = f"API error {response.status_code}: {error_text}"
                 logger.error(f"❌ {error_msg}")
                 raise Exception(error_msg)
 
@@ -162,12 +167,18 @@ class LLMClient:
             logger.info(f"✅ LLM response: {len(content)} chars")
             return content
 
-        except httpx.TimeoutException:
-            logger.error(f"❌ API timeout after {self.timeout}s")
+        except httpx.TimeoutException as e:
+            logger.error(f"❌ API timeout after {self.timeout}s: {e}", exc_info=True)
+            raise
+        except httpx.ConnectError as e:
+            logger.error(f"❌ Connection error to {endpoint}: {e}", exc_info=True)
+            raise
+        except httpx.HTTPStatusError as e:
+            logger.error(f"❌ HTTP status error: {e.response.status_code} - {e.response.text[:500]}", exc_info=True)
             raise
         except httpx.HTTPError as e:
-            logger.error(f"❌ HTTP error: {e}")
+            logger.error(f"❌ HTTP error: {type(e).__name__} - {e}", exc_info=True)
             raise
         except Exception as e:
-            logger.error(f"❌ LLM error: {e}")
+            logger.error(f"❌ Unexpected LLM error: {type(e).__name__} - {e}", exc_info=True)
             raise
