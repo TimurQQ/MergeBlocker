@@ -5,6 +5,7 @@ LLM client для code review через Anthropic-совместимое API.
 """
 
 import logging
+import time
 from typing import Optional
 
 import httpx
@@ -117,8 +118,6 @@ class LLMClient:
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
-
-        import time
 
         logger.info(f"📤 Calling Anthropic API (async): {endpoint}")
         logger.info(f"📊 Request params: model={self.model}, max_tokens={self.max_tokens}, timeout={self.timeout}s")

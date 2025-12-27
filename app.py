@@ -9,6 +9,7 @@ from quart import Quart, jsonify, request
 from src.analysis.code_analyzer import CodeAnalyzer
 from src.analysis.review_formatter import ReviewFormatter
 from src.clients.github_client import GitHubClient
+from src.clients.llm_client import LLMClient
 from src.config import Config
 from src.handlers.webhook_handler import WebhookHandler
 
@@ -149,8 +150,6 @@ Please provide a helpful, specific answer to the user's question. Be concise and
 
         try:
             # Use dedicated client with shorter timeout and no thinking for quick replies
-            from src.clients.llm_client import LLMClient
-
             quick_client = LLMClient(
                 model=Config.LLM_MODEL,
                 temperature=0.7,  # Lower temperature for factual answers

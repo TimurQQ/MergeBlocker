@@ -1,5 +1,6 @@
 """GitHub API client for interacting with Pull Requests."""
 
+import traceback
 from typing import Any, Dict, List, Optional
 
 from github import Auth, Github, GithubIntegration
@@ -308,8 +309,6 @@ class GitHubClient:
             }
         except Exception as e:
             print(f"Error getting review comment {comment_id} in PR #{pr_number}: {e}")
-            import traceback
-
             traceback.print_exc()
             return None
 
@@ -343,8 +342,6 @@ class GitHubClient:
 
         except Exception as e:
             print(f"Error creating review comment reply: {e}")
-            import traceback
-
             traceback.print_exc()
             return False
 

@@ -10,6 +10,7 @@ import logging
 from functools import wraps
 from typing import Any, Callable, Type, TypeVar
 
+import httpx
 from tenacity import AsyncRetrying, before_sleep_log, retry_if_exception_type, stop_after_attempt, wait_fixed
 
 logger = logging.getLogger(__name__)
@@ -61,15 +62,18 @@ def async_retry_on_invalid_json(
 def async_retry_on_http_errors(
     max_attempts: int = 3,
     wait_seconds: float = 1.0,
-    status_codes: tuple[int, ...] = (429, 500, 502, 503, 504),
 ) -> Callable:
     """
     Декоратор для async функций с retry при HTTP ошибках.
 
+    Автоматически повторяет запрос при:
+    - httpx.HTTPError (включая 4xx, 5xx)
+    - httpx.TimeoutException
+    - httpx.RemoteProtocolError
+
     Args:
         max_attempts: Максимальное количество попыток (по умолчанию 3)
         wait_seconds: Задержка между попытками в секундах (по умолчанию 1.0)
-        status_codes: HTTP коды для retry (по умолчанию rate limit и server errors)
 
     Returns:
         Декоратор для async функции
@@ -80,13 +84,6 @@ def async_retry_on_http_errors(
             response = await client.get(endpoint)
             return response.json()
     """
-    import httpx
-
-    def should_retry(exc: Exception) -> bool:
-        """Проверяет, нужно ли повторять запрос при данном исключении."""
-        if isinstance(exc, httpx.HTTPStatusError):
-            return exc.response.status_code in status_codes
-        return isinstance(exc, (httpx.TimeoutException, httpx.NetworkError))
 
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @wraps(func)
