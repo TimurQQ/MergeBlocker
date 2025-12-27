@@ -90,12 +90,15 @@ async def handle_comment_reply(event: dict):
     try:
         payload = event["payload"]
         comment = payload["comment"]
-        issue = payload["issue"]
         repo = payload["repository"]
         installation = payload["installation"]
 
-        # Get PR number from issue
-        pr_number = issue["number"]
+        # Get PR number - different structure for different event types
+        if event["event_type"] == "pull_request_review_comment":
+            pr_number = payload["pull_request"]["number"]
+        else:  # issue_comment
+            pr_number = payload["issue"]["number"]
+
         reply_to_id = comment.get("in_reply_to_id")
         user_question = comment["body"]
 

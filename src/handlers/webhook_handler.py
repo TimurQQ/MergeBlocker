@@ -137,6 +137,7 @@ class WebhookHandler:
     def is_comment_event(self, event: Dict[str, Any]) -> bool:
         """
         Check if event is a comment event.
+        Handles both issue_comment and pull_request_review_comment events.
 
         Args:
             event: Parsed event dictionary
@@ -144,7 +145,7 @@ class WebhookHandler:
         Returns:
             True if this is a comment event
         """
-        return event["event_type"] == "issue_comment"
+        return event["event_type"] in ["issue_comment", "pull_request_review_comment"]
 
     def is_pr_comment(self, event: Dict[str, Any]) -> bool:
         """
@@ -245,6 +246,7 @@ class WebhookHandler:
     def extract_pr_info_from_comment(self, event: Dict[str, Any]) -> Dict[str, Any]:
         """
         Extract PR information from comment event.
+        Handles both issue_comment and pull_request_review_comment events.
 
         Args:
             event: Parsed event dictionary
@@ -253,7 +255,6 @@ class WebhookHandler:
             Dictionary with PR details
         """
         payload = event["payload"]
-        issue = payload["issue"]  # In comment events, PR is represented as issue
         repo = payload["repository"]
 
         # Check if installation exists in payload
@@ -265,17 +266,39 @@ class WebhookHandler:
         installation = payload["installation"]
         comment = payload["comment"]
 
-        return {
-            "installation_id": installation["id"],
-            "repo_full_name": repo["full_name"],
-            "repo_name": repo["name"],
-            "repo_owner": repo["owner"]["login"],
-            "pr_number": issue["number"],
-            "pr_title": issue["title"],
-            "pr_body": issue.get("body", ""),
-            "pr_state": issue["state"],
-            "pr_draft": issue.get("draft", False),
-            "comment_id": comment["id"],
-            "comment_author": comment["user"]["login"],
-            "action": "command_review",  # Custom action for command-triggered review
-        }
+        # For pull_request_review_comment events, use pull_request directly
+        # For issue_comment events, use issue object
+        if event["event_type"] == "pull_request_review_comment":
+            pr = payload["pull_request"]
+            return {
+                "installation_id": installation["id"],
+                "repo_full_name": repo["full_name"],
+                "repo_name": repo["name"],
+                "repo_owner": repo["owner"]["login"],
+                "pr_number": pr["number"],
+                "pr_title": pr["title"],
+                "pr_body": pr.get("body", ""),
+                "pr_state": pr["state"],
+                "pr_draft": pr.get("draft", False),
+                "head_sha": pr["head"]["sha"],
+                "base_branch": pr["base"]["ref"],
+                "comment_id": comment["id"],
+                "comment_author": comment["user"]["login"],
+                "action": "command_review",  # Custom action for command-triggered review
+            }
+        else:  # issue_comment
+            issue = payload["issue"]
+            return {
+                "installation_id": installation["id"],
+                "repo_full_name": repo["full_name"],
+                "repo_name": repo["name"],
+                "repo_owner": repo["owner"]["login"],
+                "pr_number": issue["number"],
+                "pr_title": issue["title"],
+                "pr_body": issue.get("body", ""),
+                "pr_state": issue["state"],
+                "pr_draft": issue.get("draft", False),
+                "comment_id": comment["id"],
+                "comment_author": comment["user"]["login"],
+                "action": "command_review",  # Custom action for command-triggered review
+            }
