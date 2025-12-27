@@ -1,9 +1,10 @@
-"""Main Flask application for MergeBlocker GitHub App."""
+"""Main Quart application for MergeBlocker GitHub App."""
 
+import asyncio
 import logging
 
-from flask import Flask, jsonify, request
 from github import GithubException
+from quart import Quart, jsonify, request
 
 from src.analysis.code_analyzer import CodeAnalyzer
 from src.analysis.review_formatter import ReviewFormatter
@@ -15,8 +16,8 @@ from src.handlers.webhook_handler import WebhookHandler
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-# Initialize Flask app
-app = Flask(__name__)
+# Initialize Quart app
+app = Quart(__name__)
 
 # Initialize components
 webhook_handler = WebhookHandler()
@@ -26,12 +27,12 @@ review_formatter = ReviewFormatter()
 
 
 @app.route("/", methods=["GET"])
-def home():
+async def home():
     """Health check endpoint."""
     return jsonify({"status": "ok", "app": "MergeBlocker", "version": "1.0.0"})
 
 
-def handle_review_command(pr_info: dict):
+async def handle_review_command(pr_info: dict):
     """Handle @MergeBlocker review command."""
     logger.info(
         f"Extracted PR info - installation_id: {pr_info.get('installation_id')}, "
@@ -39,7 +40,8 @@ def handle_review_command(pr_info: dict):
     )
 
     try:
-        pr_details = github_client.get_pr(
+        pr_details = await asyncio.to_thread(
+            github_client.get_pr,
             installation_id=pr_info["installation_id"],
             repo_full_name=pr_info["repo_full_name"],
             pr_number=pr_info["pr_number"],
@@ -59,7 +61,8 @@ def handle_review_command(pr_info: dict):
             f"in {pr_info['repo_full_name']} (SHA: {pr_info['head_sha'][:7]})"
         )
 
-        process_pr_review(pr_info)
+        # Run review in background to avoid blocking webhook response
+        asyncio.create_task(process_pr_review(pr_info))
         return jsonify({"message": "Review started by command"}), 200
 
     except GithubException as e:
@@ -80,7 +83,7 @@ def handle_review_command(pr_info: dict):
         return jsonify({"error": "Failed to process command"}), 500
 
 
-def handle_pr_opened(pr_info: dict):
+async def handle_pr_opened(pr_info: dict):
     """Handle PR opened event - post welcome comment."""
     logger.info(f"New PR opened: #{pr_info['pr_number']} in {pr_info['repo_full_name']}")
 
@@ -94,7 +97,8 @@ def handle_pr_opened(pr_info: dict):
             "I'll analyze your changes and provide detailed feedback!"
         )
 
-        github_client.create_comment(
+        await asyncio.to_thread(
+            github_client.create_comment,
             installation_id=pr_info["installation_id"],
             repo_full_name=pr_info["repo_full_name"],
             pr_number=pr_info["pr_number"],
@@ -110,7 +114,7 @@ def handle_pr_opened(pr_info: dict):
 
 
 @app.route("/webhook", methods=["POST"])
-def webhook():
+async def webhook():
     """Handle GitHub webhook events."""
 
     # Verify signature
@@ -132,7 +136,7 @@ def webhook():
         if should_process and "review" in commands:
             logger.info("Processing review command from comment")
             pr_info = webhook_handler.extract_pr_info_from_comment(event)
-            return handle_review_command(pr_info)
+            return await handle_review_command(pr_info)
         else:
             logger.info(f"Skipping comment event: {reason}")
             return jsonify({"message": f"Skipped: {reason}"}), 200
@@ -140,14 +144,14 @@ def webhook():
     # Handle PR opened event - post welcome comment
     if event.get("event_type") == "pull_request" and event.get("action") == "opened":
         pr_info = webhook_handler.extract_pr_info(event)
-        return handle_pr_opened(pr_info)
+        return await handle_pr_opened(pr_info)
 
     # For other events, just acknowledge
     logger.info(f"Skipping event: {event.get('event_type')} - {event.get('action')}")
     return jsonify({"message": "Event acknowledged, use @MergeBlocker review to start analysis"}), 200
 
 
-def process_pr_review(pr_info: dict):
+async def process_pr_review(pr_info: dict):
     """
     Process PR review - fetch context, analyze, and post review.
 
@@ -162,7 +166,8 @@ def process_pr_review(pr_info: dict):
     try:
         # Step 1: Create initial check run (optional - for status visibility)
         logger.info(f"Creating initial check run for PR #{pr_number}")
-        github_client.create_check_run(
+        await asyncio.to_thread(
+            github_client.create_check_run,
             installation_id=installation_id,
             repo_full_name=repo_full_name,
             head_sha=head_sha,
@@ -174,7 +179,8 @@ def process_pr_review(pr_info: dict):
 
         # Step 2: Get PR context
         logger.info(f"Fetching PR context for #{pr_number}")
-        pr_context = github_client.get_pr_context(
+        pr_context = await asyncio.to_thread(
+            github_client.get_pr_context,
             installation_id=installation_id,
             repo_full_name=repo_full_name,
             pr_number=pr_number,
@@ -182,7 +188,8 @@ def process_pr_review(pr_info: dict):
 
         # Step 2.5: Try to read AGENTS.md from repository
         logger.info(f"Attempting to read AGENTS.md for PR #{pr_number}")
-        agents_md_content = github_client.get_file_content(
+        agents_md_content = await asyncio.to_thread(
+            github_client.get_file_content,
             installation_id=installation_id,
             repo_full_name=repo_full_name,
             file_path="AGENTS.md",
@@ -197,9 +204,9 @@ def process_pr_review(pr_info: dict):
         logger.info(f"Running quick checks for PR #{pr_number}")
         quick_warnings = code_analyzer.quick_check(pr_context["files"])
 
-        # Step 4: AI analysis
+        # Step 4: AI analysis (true async, no thread pool)
         logger.info(f"Running AI analysis for PR #{pr_number}")
-        review_result = code_analyzer.analyze_pr(pr_context, agents_md_content=agents_md_content)
+        review_result = await code_analyzer.analyze_pr(pr_context, agents_md_content=agents_md_content)
 
         # Step 5: Format review
         logger.info(f"Formatting review for PR #{pr_number}")
@@ -225,7 +232,8 @@ def process_pr_review(pr_info: dict):
 
         logger.info(f"Posting review for PR #{pr_number} " f"({len(formatted_comments)} inline comments)")
 
-        success = github_client.create_review(
+        success = await asyncio.to_thread(
+            github_client.create_review,
             installation_id=installation_id,
             repo_full_name=repo_full_name,
             pr_number=pr_number,
@@ -238,7 +246,8 @@ def process_pr_review(pr_info: dict):
         if not success:
             logger.error(f"Failed to post review for PR #{pr_number}")
             # Try posting a simple comment as fallback
-            github_client.create_comment(
+            await asyncio.to_thread(
+                github_client.create_comment,
                 installation_id=installation_id,
                 repo_full_name=repo_full_name,
                 pr_number=pr_number,
@@ -252,7 +261,8 @@ def process_pr_review(pr_info: dict):
             quick_warnings=quick_warnings,
         )
 
-        github_client.create_check_run(
+        await asyncio.to_thread(
+            github_client.create_check_run,
             installation_id=installation_id,
             repo_full_name=repo_full_name,
             head_sha=head_sha,
@@ -274,7 +284,8 @@ def process_pr_review(pr_info: dict):
                 error_message=str(e),
                 pr_info=pr_info,
             )
-            github_client.create_comment(
+            await asyncio.to_thread(
+                github_client.create_comment,
                 installation_id=installation_id,
                 repo_full_name=repo_full_name,
                 pr_number=pr_number,
@@ -282,7 +293,8 @@ def process_pr_review(pr_info: dict):
             )
 
             # Update check run to failed
-            github_client.create_check_run(
+            await asyncio.to_thread(
+                github_client.create_check_run,
                 installation_id=installation_id,
                 repo_full_name=repo_full_name,
                 head_sha=head_sha,

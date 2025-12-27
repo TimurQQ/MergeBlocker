@@ -2,6 +2,8 @@
 
 Автоматический code review для GitHub Pull Requests с использованием Claude AI.
 
+> 📚 **[Документация и гайды](./docs/)** | 🚀 [Миграция на async](./docs/QUART_MIGRATION.md) | 🧠 [Claude 4.5 Sonnet](./docs/UPGRADE_CLAUDE.md) | 🔧 [Troubleshooting](./docs/README_401_FIX.md)
+
 ## 🎯 Возможности
 
 - ✅ **Автоматический анализ кода** при создании/обновлении PR

@@ -21,10 +21,18 @@ class Config:
     # LLM Settings (OpenRouter-compatible API)
     LLM_API_KEY = os.getenv("LLM_API_KEY")
     LLM_API_BASE_URL = os.getenv("LLM_API_BASE_URL", "https://openrouter.ai/api/v1")
-    LLM_MODEL = os.getenv("LLM_MODEL", "eliza-Internal-DeepSeek-V3-1-Terminus")
-    LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.3"))
-    LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "4000"))
+    LLM_MODEL = os.getenv("LLM_MODEL", "eliza-Claude-Sonnet-4-5")
+    LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "1.0"))
+    LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "64000"))
     LLM_TIMEOUT = int(os.getenv("LLM_TIMEOUT", "180"))
+
+    # Claude Thinking Mode Settings
+    LLM_ENABLE_THINKING = os.getenv("LLM_ENABLE_THINKING", "true").lower() == "true"
+    LLM_THINKING_BUDGET_TOKENS = int(os.getenv("LLM_THINKING_BUDGET_TOKENS", "10000"))
+
+    # Fallback model for large PRs (> 100k tokens)
+    LLM_FALLBACK_MODEL = os.getenv("LLM_FALLBACK_MODEL", "eliza-Gemini-3-Pro-Preview")
+    LLM_FALLBACK_THRESHOLD = int(os.getenv("LLM_FALLBACK_THRESHOLD", "100000"))
 
     # Server Settings
     PORT = int(os.getenv("PORT", 8002))

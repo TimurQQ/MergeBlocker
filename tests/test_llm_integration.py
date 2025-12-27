@@ -6,6 +6,7 @@ from src.analysis.code_analyzer import CodeAnalyzer
 from src.clients.llm_client import LLMClient
 
 
+@pytest.mark.asyncio
 class TestLLMIntegration:
     """Integration tests that require LLM API access."""
 
@@ -19,26 +20,26 @@ class TestLLMIntegration:
         """Create code analyzer (requires API key)."""
         return CodeAnalyzer()
 
-    def test_llm_client_creation(self, llm_client):
+    async def test_llm_client_creation(self, llm_client):
         """Test: LLM client is successfully created."""
         assert llm_client is not None
         assert llm_client.model is not None
         assert llm_client.api_key is not None
         print(f"\n✅ LLM Client created with model: {llm_client.model}")
 
-    def test_simple_generation(self, llm_client):
+    async def test_simple_generation(self, llm_client):
         """Test: LLM can generate a simple response."""
         prompt = "Say 'Hello, MergeBlocker!' and nothing else."
         system_prompt = "You are a helpful assistant."
 
-        response = llm_client.generate(user_prompt=prompt, system_prompt=system_prompt)
+        response = await llm_client.generate(user_prompt=prompt, system_prompt=system_prompt)
 
         assert response is not None
         assert len(response) > 0
         assert isinstance(response, str)
         print(f"\n✅ LLM generated response: {response[:100]}...")
 
-    def test_code_review_generation(self, llm_client):
+    async def test_code_review_generation(self, llm_client):
         """Test: LLM can generate code review feedback."""
         system_prompt = "You are a code reviewer. Provide brief feedback."
         user_prompt = """
@@ -52,13 +53,13 @@ class TestLLMIntegration:
         Provide one sentence feedback.
         """
 
-        review = llm_client.generate(user_prompt=user_prompt, system_prompt=system_prompt)
+        review = await llm_client.generate(user_prompt=user_prompt, system_prompt=system_prompt)
 
         assert review is not None
         assert len(review) > 0
         print(f"\n✅ Code review generated: {review[:200]}...")
 
-    def test_pr_analysis(self, code_analyzer):
+    async def test_pr_analysis(self, code_analyzer):
         """Test: Analyze a PR with mock data."""
         pr_context = {
             "pr": {
@@ -90,7 +91,7 @@ class TestLLMIntegration:
             "commits": [],
         }
 
-        result = code_analyzer.analyze_pr(pr_context)
+        result = await code_analyzer.analyze_pr(pr_context)
 
         # Проверяем структуру JSON ответа
         assert result is not None
