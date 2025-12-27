@@ -105,7 +105,10 @@ ipython_config.py
 #   This is especially recommended for binary packages to ensure reproducibility, and is more
 #   commonly ignored for libraries.
 #   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
-#poetry.lock
+#
+#   ВАЖНО: Игнорируем poetry.lock т.к. он platform-specific (macOS vs Linux)
+#   В CI используется poetry install без lock file
+poetry.lock
 #poetry.toml
 
 # pdm
