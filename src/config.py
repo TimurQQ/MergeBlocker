@@ -68,3 +68,12 @@ class Config:
             cls.get_private_key()
         except FileNotFoundError as e:
             raise ValueError(str(e))
+
+        # Validate thinking mode configuration
+        if cls.LLM_ENABLE_THINKING:
+            if cls.LLM_MAX_TOKENS <= cls.LLM_THINKING_BUDGET_TOKENS:
+                raise ValueError(
+                    f"LLM_MAX_TOKENS ({cls.LLM_MAX_TOKENS}) must be greater than "
+                    f"LLM_THINKING_BUDGET_TOKENS ({cls.LLM_THINKING_BUDGET_TOKENS}) "
+                    f"when thinking mode is enabled"
+                )

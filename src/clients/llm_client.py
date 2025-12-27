@@ -56,6 +56,14 @@ class LLMClient:
             logger.warning(f"⚠️ Thinking mode требует temperature=1.0, изменяю с {self.temperature} на 1.0")
             self.temperature = 1.0
 
+        # Claude требует max_tokens > thinking_budget
+        if self.enable_thinking and self.max_tokens <= self.thinking_budget:
+            logger.warning(
+                f"⚠️ max_tokens ({self.max_tokens}) должен быть больше thinking_budget ({self.thinking_budget}), "
+                f"увеличиваю max_tokens до {self.thinking_budget + 20000}"
+            )
+            self.max_tokens = self.thinking_budget + 20000
+
         # Валидация
         if not self.api_key:
             logger.error("❌ LLM_API_KEY is not set!")
