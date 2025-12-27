@@ -93,13 +93,19 @@ async def handle_comment_reply(event: dict):
     return jsonify({"message": "Reply processing started"}), 202
 
 
-async def _process_reply_background(event: dict):
+async def _process_reply_background(event: dict):  # noqa: C901
     """Background task for processing reply to bot's comment."""
     try:
         payload = event["payload"]
         comment = payload["comment"]
         repo = payload["repository"]
         installation = payload["installation"]
+
+        # Check if comment author is the bot itself - prevent infinite loops!
+        comment_author = comment["user"]["login"].lower()
+        if comment_author in ["mergeblocker[bot]", "mergeblocker"]:
+            logger.info(f"Ignoring reply from bot itself: {comment_author}")
+            return
 
         # Get PR number - different structure for different event types
         if event["event_type"] == "pull_request_review_comment":
