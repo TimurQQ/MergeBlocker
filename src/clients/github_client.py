@@ -271,10 +271,15 @@ class GitHubClient:
         """
         Get a specific review comment by ID.
 
+        According to PyGithub docs, PullRequestComment has these attributes:
+        - body, commit_id, created_at, diff_hunk, id, in_reply_to_id
+        - original_commit_id, original_position, path, position
+        - pull_request_url, updated_at, url, html_url, user
+
         Args:
             installation_id: GitHub installation ID
             repo_full_name: Full repository name
-            pr_number: Pull request number
+            pr_number: Pull request number (not used, but kept for compatibility)
             comment_id: Comment ID
 
         Returns:
@@ -283,20 +288,26 @@ class GitHubClient:
         try:
             client = self.get_installation_client(installation_id)
             repo = client.get_repo(repo_full_name)
-            pr = repo.get_pull(pr_number)
-            comment = pr.get_review_comment(comment_id)
+            # Use repo.get_pull_request_comment() as per PyGithub docs
+            comment = repo.get_pull(pr_number).get_review_comment(comment_id)
 
             return {
                 "id": comment.id,
                 "body": comment.body,
                 "path": comment.path,
-                "line": comment.line if hasattr(comment, "line") else comment.original_line,
+                "position": comment.position,  # Position in diff, not line number
+                "original_position": comment.original_position,
+                "diff_hunk": comment.diff_hunk,
                 "user": comment.user.login,
                 "created_at": comment.created_at.isoformat(),
-                "in_reply_to_id": comment.in_reply_to_id if hasattr(comment, "in_reply_to_id") else None,
+                "in_reply_to_id": comment.in_reply_to_id,
+                "commit_id": comment.commit_id,
             }
         except Exception as e:
-            print(f"Error getting review comment: {e}")
+            print(f"Error getting review comment {comment_id} in PR #{pr_number}: {e}")
+            import traceback
+
+            traceback.print_exc()
             return None
 
     def create_review_comment_reply(

@@ -118,22 +118,19 @@ async def handle_comment_reply(event: dict):
             logger.info(f"Parent comment is from {parent_comment['user']}, not bot. Skipping.")
             return jsonify({"message": "Not a reply to bot"}), 200
 
-        # Get PR context
-        pr_context = await asyncio.to_thread(github_client.get_pr_context, installation["id"], repo["full_name"], pr_number)
-
         # Build prompt with conversation history
         conversation_prompt = f"""User asked a follow-up question about this code review comment:
 
-**Original Bot Comment (at {parent_comment['path']}:{parent_comment['line']})**:
+**Original Bot Comment (at {parent_comment['path']} position {parent_comment['position']})**:
 {parent_comment['body']}
+
+**Diff Context**:
+```
+{parent_comment['diff_hunk']}
+```
 
 **User's Question**:
 {user_question}
-
-**Code Context** (file: {parent_comment['path']}):
-```
-{_get_code_snippet_for_line(pr_context, parent_comment['path'], parent_comment['line'])}
-```
 
 Please provide a helpful, specific answer to the user's question. Be concise and refer to the code when relevant.
 """
@@ -165,17 +162,6 @@ Please provide a helpful, specific answer to the user's question. Be concise and
     except Exception as e:
         logger.error(f"Error handling comment reply: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
-
-
-def _get_code_snippet_for_line(pr_context: dict, file_path: str, line: int, context_lines: int = 5) -> str:
-    """Get code snippet around specific line."""
-    for file in pr_context["files"]:
-        if file["filename"] == file_path and file["patch"]:
-            # Extract relevant lines from patch
-            patch_lines = file["patch"].split("\n")
-            # Simple heuristic: return patch around the line
-            return "\n".join(patch_lines[: min(len(patch_lines), context_lines * 2)])
-    return "(code not available)"
 
 
 async def handle_pr_opened(pr_info: dict):
