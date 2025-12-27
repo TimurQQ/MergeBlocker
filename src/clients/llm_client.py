@@ -10,6 +10,7 @@ from typing import Optional
 import httpx
 
 from src.config import Config
+from src.utils.async_retry import async_retry_on_http_errors
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,7 @@ class LLMClient:
             f"thinking_mode={'enabled' if self.enable_thinking else 'disabled'}"
         )
 
+    @async_retry_on_http_errors(max_attempts=3, wait_seconds=2.0)
     async def generate(self, user_prompt: str, system_prompt: str) -> str:  # noqa: C901
         """
         Асинхронно генерирует ответ через Anthropic Messages API.
