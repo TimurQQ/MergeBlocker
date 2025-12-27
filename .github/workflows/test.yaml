@@ -218,8 +218,8 @@ jobs:
           LLM_API_BASE_URL: ${{ secrets.LLM_API_BASE_URL }}
           LLM_MODEL: ${{ secrets.LLM_MODEL }}
         run: |
-          # Параллельный запуск с 8 воркерами и оптимальным распределением
-          poetry run pytest -n 8 --dist loadfile --cov=src --cov-report=term --cov-report=xml
+          # Параллельный запуск с 8 воркерами (динамическое распределение тестов)
+          poetry run pytest -n 8 --cov=src --cov-report=term --cov-report=xml
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v3
@@ -262,9 +262,9 @@ jobs:
           until curl -sf http://localhost:8002/ > /dev/null 2>&1; do
             if [ $SECONDS -ge 30 ]; then
               echo "❌ API не отвечает (timeout 30s)"
-              docker logs mergeblocker-test-container || true
-              exit 1
-            fi
+            docker logs mergeblocker-test-container || true
+            exit 1
+          fi
             echo -n "."
             sleep 1
           done
