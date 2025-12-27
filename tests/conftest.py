@@ -83,9 +83,6 @@ def mock_code_analyzer():
     """Create a mock code analyzer for testing."""
     analyzer = Mock()
 
-    # Mock quick check
-    analyzer.quick_check.return_value = []
-
     # Mock PR analysis (JSON format)
     analyzer.analyze_pr.return_value = {
         "summary": "Test review summary",

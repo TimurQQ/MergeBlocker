@@ -200,23 +200,18 @@ async def process_pr_review(pr_info: dict):
         else:
             logger.info("AGENTS.md not found in repository")
 
-        # Step 3: Quick deterministic checks
-        logger.info(f"Running quick checks for PR #{pr_number}")
-        quick_warnings = code_analyzer.quick_check(pr_context["files"])
-
-        # Step 4: AI analysis (true async, no thread pool)
+        # Step 3: AI analysis (true async, no thread pool)
         logger.info(f"Running AI analysis for PR #{pr_number}")
         review_result = await code_analyzer.analyze_pr(pr_context, agents_md_content=agents_md_content)
 
-        # Step 5: Format review
+        # Step 4: Format review
         logger.info(f"Formatting review for PR #{pr_number}")
         review_body = review_formatter.format_review_comment(
             review_result=review_result,
             pr_info=pr_info,
-            quick_warnings=quick_warnings,
         )
 
-        # Step 6: Post review
+        # Step 5: Post review
         inline_comments = review_result.get("inline_comments", [])
 
         # Format inline comments
@@ -254,11 +249,10 @@ async def process_pr_review(pr_info: dict):
                 body=review_body,
             )
 
-        # Step 7: Update check run to completed
+        # Step 6: Update check run to completed
         check_summary = review_formatter.format_check_run_summary(
             review_result=review_result,
             pr_info=pr_info,
-            quick_warnings=quick_warnings,
         )
 
         await asyncio.to_thread(

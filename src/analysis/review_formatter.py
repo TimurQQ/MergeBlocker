@@ -1,21 +1,20 @@
 """Formatter for review comments and summaries."""
 
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 
 class ReviewFormatter:
     """Formats review results for GitHub comments."""
 
     @staticmethod
-    def format_review_comment(review_result: Dict[str, Any], pr_info: Dict[str, Any], quick_warnings: List[str] = None) -> str:
+    def format_review_comment(review_result: Dict[str, Any], pr_info: Dict[str, Any]) -> str:
         """
         Format review result into a GitHub comment.
 
         Args:
             review_result: Result from CodeAnalyzer
             pr_info: PR information
-            quick_warnings: Quick check warnings
 
         Returns:
             Formatted markdown comment
@@ -34,13 +33,6 @@ class ReviewFormatter:
 
 ---
 """
-
-        # Quick warnings section
-        warnings_section = ""
-        if quick_warnings:
-            warnings_section = "\n## ⚡ Quick Checks\n\n"
-            warnings_section += "\n".join(f"- {warning}" for warning in quick_warnings)
-            warnings_section += "\n\n---\n"
 
         # Summary section
         summary_section = f"\n## 📋 Summary\n\n{summary}\n"
@@ -81,7 +73,7 @@ Please check the "Files changed" tab to see them.
 not replace them. Please use your judgment when addressing these suggestions.</sub>
 """
 
-        return header + warnings_section + summary_section + critical_section + suggestions_section + inline_notice + footer
+        return header + summary_section + critical_section + suggestions_section + inline_notice + footer
 
     @staticmethod
     def format_error_comment(error_message: str, pr_info: Dict[str, Any]) -> str:
@@ -160,29 +152,23 @@ This PR was not automatically reviewed because: {reason}
         return f"🤖 **AI Review**\n\n{body}"
 
     @staticmethod
-    def format_check_run_summary(
-        review_result: Dict[str, Any], pr_info: Dict[str, Any], quick_warnings: List[str] = None
-    ) -> Dict[str, str]:
+    def format_check_run_summary(review_result: Dict[str, Any], pr_info: Dict[str, Any]) -> Dict[str, str]:
         """
         Format review result for GitHub Check Run.
 
         Args:
             review_result: Result from CodeAnalyzer
             pr_info: PR information
-            quick_warnings: Quick check warnings
 
         Returns:
             Dictionary with 'title' and 'summary' keys
         """
         is_large = review_result.get("is_large_pr", False)
         inline_count = len(review_result.get("inline_comments", []))
-        warnings_count = len(quick_warnings) if quick_warnings else 0
 
         # Determine title
         if is_large:
             title = "✅ Review Complete (Large PR - Summary Only)"
-        elif warnings_count > 0:
-            title = f"⚠️ Review Complete ({warnings_count} warning(s))"
         else:
             title = "✅ Review Complete"
 
@@ -192,9 +178,6 @@ This PR was not automatically reviewed because: {reason}
             f"**Commit:** `{pr_info['head_sha'][:7]}`",
             "",
         ]
-
-        if warnings_count > 0:
-            summary_parts.append(f"**Warnings:** {warnings_count}")
 
         if inline_count > 0:
             summary_parts.append(f"**Inline Comments:** {inline_count}")

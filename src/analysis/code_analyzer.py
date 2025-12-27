@@ -191,30 +191,3 @@ Changes: +{file['additions']} -{file['deletions']}
             "inline_comments": [],
             "is_large_pr": False,
         }
-
-    def quick_check(self, files: List[Dict[str, Any]]) -> List[str]:
-        """
-        Perform quick deterministic checks on files.
-
-        Returns:
-            List of warning messages
-        """
-        warnings = []
-
-        # Check for potential secrets
-        secret_patterns = ["api_key", "password", "secret", "token", "private_key"]
-        for file in files:
-            if file["patch"]:
-                patch_lower = file["patch"].lower()
-                for pattern in secret_patterns:
-                    if pattern in patch_lower and "+" in file["patch"]:
-                        warnings.append(f"⚠️ Potential secret detected in `{file['filename']}` " f"(pattern: {pattern})")
-                        break
-
-        # Check for TODOs in new code
-        for file in files:
-            if file["patch"] and ("TODO" in file["patch"] or "FIXME" in file["patch"]):
-                if "+" in file["patch"]:  # Only in added lines
-                    warnings.append(f"📝 TODO/FIXME found in `{file['filename']}`")
-
-        return warnings
