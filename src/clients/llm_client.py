@@ -27,6 +27,7 @@ class LLMClient:
         temperature: Optional[float] = None,
         max_tokens: Optional[int] = None,
         timeout: Optional[int] = None,
+        enable_thinking: bool = True,
     ):
         """
         Инициализация LLM клиента.
@@ -36,6 +37,7 @@ class LLMClient:
             temperature: Температура генерации (0.0-2.0)
             max_tokens: Максимальное количество токенов в ответе
             timeout: Таймаут запроса в секундах
+            enable_thinking: Включить thinking mode (True/False)
         """
         # Параметры модели
         self.model = model or Config.LLM_MODEL
@@ -48,7 +50,7 @@ class LLMClient:
         self.base_url = Config.LLM_API_BASE_URL
 
         # Thinking mode настройки
-        self.enable_thinking = Config.LLM_ENABLE_THINKING
+        self.enable_thinking = enable_thinking
         self.thinking_budget = Config.LLM_THINKING_BUDGET_TOKENS
 
         # Claude требует temperature = 1.0 для thinking mode

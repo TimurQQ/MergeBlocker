@@ -152,10 +152,8 @@ Please provide a helpful, specific answer to the user's question. Be concise and
             from src.clients.llm_client import LLMClient
 
             quick_client = LLMClient(
-                api_key=Config.LLM_API_KEY,
-                base_url=Config.LLM_API_BASE_URL,
                 model=Config.LLM_MODEL,
-                temperature=Config.LLM_TEMPERATURE,
+                temperature=0.7,  # Lower temperature for factual answers
                 max_tokens=4096,  # Shorter responses for quick replies
                 timeout=30,  # 30s timeout for webhook compatibility
                 enable_thinking=False,  # Disable thinking for speed

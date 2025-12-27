@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 
 from src.analysis.prompts import ReviewPrompts
 from src.clients.llm_client import LLMClient
+from src.config import Config
 from src.utils.async_retry import async_retry_on_invalid_json
 
 logger = logging.getLogger(__name__)
@@ -15,7 +16,7 @@ class CodeAnalyzer:
     """Analyzes code changes using LLM (OpenRouter-compatible API)."""
 
     def __init__(self):
-        self.client = LLMClient()
+        self.client = LLMClient(enable_thinking=Config.LLM_ENABLE_THINKING)
 
     @async_retry_on_invalid_json(max_attempts=3, wait_seconds=0)
     async def analyze_pr(self, pr_context: Dict[str, Any], agents_md_content: str = None) -> Dict[str, Any]:
