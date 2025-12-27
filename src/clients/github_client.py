@@ -265,13 +265,16 @@ class GitHubClient:
             print(f"Error creating comment: {e}")
             return False
 
-    def get_review_comment(self, installation_id: int, repo_full_name: str, comment_id: int) -> Optional[Dict[str, Any]]:
+    def get_review_comment(
+        self, installation_id: int, repo_full_name: str, pr_number: int, comment_id: int
+    ) -> Optional[Dict[str, Any]]:
         """
         Get a specific review comment by ID.
 
         Args:
             installation_id: GitHub installation ID
             repo_full_name: Full repository name
+            pr_number: Pull request number
             comment_id: Comment ID
 
         Returns:
@@ -280,7 +283,8 @@ class GitHubClient:
         try:
             client = self.get_installation_client(installation_id)
             repo = client.get_repo(repo_full_name)
-            comment = repo.get_pull_request_review_comment(comment_id)
+            pr = repo.get_pull(pr_number)
+            comment = pr.get_review_comment(comment_id)
 
             return {
                 "id": comment.id,

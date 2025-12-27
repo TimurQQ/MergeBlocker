@@ -106,7 +106,7 @@ async def handle_comment_reply(event: dict):
 
         # Get parent comment to understand context
         parent_comment = await asyncio.to_thread(
-            github_client.get_review_comment, installation["id"], repo["full_name"], reply_to_id
+            github_client.get_review_comment, installation["id"], repo["full_name"], pr_number, reply_to_id
         )
 
         if not parent_comment:
