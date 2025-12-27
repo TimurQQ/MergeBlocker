@@ -263,6 +263,31 @@ async def webhook():
         if should_process and "review" in commands:
             logger.info("Processing review command from comment")
             pr_info = webhook_handler.extract_pr_info_from_comment(event)
+
+            # Add "eyes" reaction to show bot is processing
+            try:
+                payload = event["payload"]
+                comment = payload["comment"]
+                repo = payload["repository"]
+                installation = payload["installation"]
+
+                # Determine if this is a review comment or issue comment
+                pr_number = None
+                if event.get("event_type") == "pull_request_review_comment":
+                    pr_number = payload["pull_request"]["number"]
+
+                logger.info(f"Adding 👀 reaction to comment {comment['id']}...")
+                await asyncio.to_thread(
+                    github_client.create_reaction,
+                    installation["id"],
+                    repo["full_name"],
+                    comment["id"],
+                    "eyes",
+                    pr_number,
+                )
+            except Exception as e:
+                logger.warning(f"Could not add reaction: {e}")
+
             return await handle_review_command(pr_info)
         else:
             logger.info(f"Skipping comment event: {reason}")
