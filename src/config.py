@@ -30,10 +30,6 @@ class Config:
     LLM_ENABLE_THINKING = os.getenv("LLM_ENABLE_THINKING", "true").lower() == "true"
     LLM_THINKING_BUDGET_TOKENS = int(os.getenv("LLM_THINKING_BUDGET_TOKENS", "10000"))
 
-    # Fallback model for large PRs (> 100k tokens)
-    LLM_FALLBACK_MODEL = os.getenv("LLM_FALLBACK_MODEL", "eliza-Gemini-3-Pro-Preview")
-    LLM_FALLBACK_THRESHOLD = int(os.getenv("LLM_FALLBACK_THRESHOLD", "100000"))
-
     # Server Settings
     PORT = int(os.getenv("PORT", 8002))
     HOST = os.getenv("HOST", "0.0.0.0")

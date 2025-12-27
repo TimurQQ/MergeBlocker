@@ -6,7 +6,6 @@ from typing import Any, Dict, List
 
 from src.analysis.prompts import ReviewPrompts
 from src.clients.llm_client import LLMClient
-from src.config import Config
 from src.utils.async_retry import async_retry_on_invalid_json
 
 logger = logging.getLogger(__name__)
@@ -17,49 +16,6 @@ class CodeAnalyzer:
 
     def __init__(self):
         self.client = LLMClient()
-        self.fallback_client = None  # Lazy init для fallback модели
-
-    def _estimate_prompt_tokens(self, prompt: str) -> int:
-        """
-        Оценивает количество токенов в промпте.
-
-        Простая эвристика: 1 токен ≈ 4 символа
-        """
-        return len(prompt) // 4
-
-    def _get_client_for_prompt(self, prompt: str) -> LLMClient:
-        """
-        Выбирает клиент в зависимости от размера промпта.
-
-        Если промпт слишком большой (> fallback_threshold), использует fallback модель
-        с большим контекстом (Gemini 3 Pro - 1M tokens).
-
-        Args:
-            prompt: Промпт для анализа
-
-        Returns:
-            LLMClient: Основной или fallback клиент
-        """
-        estimated_tokens = self._estimate_prompt_tokens(prompt)
-        threshold = Config.LLM_FALLBACK_THRESHOLD
-
-        if estimated_tokens > threshold:
-            logger.warning(
-                f"⚠️ Large PR detected: ~{estimated_tokens} tokens " f"(threshold: {threshold}). Using fallback model."
-            )
-
-            # Lazy init fallback client
-            if self.fallback_client is None:
-                self.fallback_client = LLMClient(
-                    model=Config.LLM_FALLBACK_MODEL,
-                    max_tokens=Config.LLM_MAX_TOKENS,
-                    temperature=Config.LLM_TEMPERATURE,
-                )
-                logger.info(f"📦 Fallback model initialized: {Config.LLM_FALLBACK_MODEL}")
-
-            return self.fallback_client
-
-        return self.client
 
     @async_retry_on_invalid_json(max_attempts=3, wait_seconds=0)
     async def analyze_pr(self, pr_context: Dict[str, Any], agents_md_content: str = None) -> Dict[str, Any]:
@@ -87,12 +43,9 @@ class CodeAnalyzer:
         # Build prompt with PR context and AGENTS.md
         prompt = self._build_review_prompt(pr, files, agents_md=agents_md_content)
 
-        # Choose appropriate client based on prompt size
-        client = self._get_client_for_prompt(prompt)
-
         # Call LLM for detailed analysis
         try:
-            review_text = await client.generate(user_prompt=prompt, system_prompt=ReviewPrompts.SYSTEM_PROMPT)
+            review_text = await self.client.generate(user_prompt=prompt, system_prompt=ReviewPrompts.SYSTEM_PROMPT)
 
             # Extract JSON from response (removes markdown blocks if present)
             json_text = self._extract_json_from_response(review_text)

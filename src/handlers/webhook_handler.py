@@ -208,6 +208,40 @@ class WebhookHandler:
 
         return True, "OK", commands
 
+    def is_reply_to_comment(self, event: Dict[str, Any]) -> bool:
+        """
+        Check if comment is a reply to another comment.
+
+        Args:
+            event: Parsed event dictionary
+
+        Returns:
+            True if this is a reply to another comment
+        """
+        payload = event["payload"]
+        comment = payload.get("comment", {})
+        # GitHub review comments have 'in_reply_to_id' field
+        return comment.get("in_reply_to_id") is not None
+
+    def is_reply_to_bot(self, event: Dict[str, Any], bot_name: str = "MergeBlocker") -> bool:
+        """
+        Check if comment is a reply to bot's comment.
+
+        Args:
+            event: Parsed event dictionary
+            bot_name: Name of the bot to check
+
+        Returns:
+            True if this is a reply to bot's comment
+        """
+        if not self.is_reply_to_comment(event):
+            return False
+
+        # For now, we assume if it's a reply and mentions the bot, it's likely to bot
+        # Actual check would require fetching the parent comment from GitHub API
+        comment_body = event["payload"]["comment"]["body"]
+        return bot_name.lower() not in comment_body.lower()  # Don't treat new @mentions as replies
+
     def extract_pr_info_from_comment(self, event: Dict[str, Any]) -> Dict[str, Any]:
         """
         Extract PR information from comment event.

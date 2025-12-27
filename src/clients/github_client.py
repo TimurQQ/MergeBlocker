@@ -265,6 +265,65 @@ class GitHubClient:
             print(f"Error creating comment: {e}")
             return False
 
+    def get_review_comment(self, installation_id: int, repo_full_name: str, comment_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Get a specific review comment by ID.
+
+        Args:
+            installation_id: GitHub installation ID
+            repo_full_name: Full repository name
+            comment_id: Comment ID
+
+        Returns:
+            Dictionary with comment details or None if not found
+        """
+        try:
+            client = self.get_installation_client(installation_id)
+            repo = client.get_repo(repo_full_name)
+            comment = repo.get_pull_request_review_comment(comment_id)
+
+            return {
+                "id": comment.id,
+                "body": comment.body,
+                "path": comment.path,
+                "line": comment.line if hasattr(comment, "line") else comment.original_line,
+                "user": comment.user.login,
+                "created_at": comment.created_at.isoformat(),
+                "in_reply_to_id": comment.in_reply_to_id if hasattr(comment, "in_reply_to_id") else None,
+            }
+        except Exception as e:
+            print(f"Error getting review comment: {e}")
+            return None
+
+    def create_review_comment_reply(
+        self, installation_id: int, repo_full_name: str, pr_number: int, comment_id: int, body: str
+    ) -> bool:
+        """
+        Create a reply to a review comment.
+
+        Args:
+            installation_id: GitHub installation ID
+            repo_full_name: Full repository name
+            pr_number: Pull request number
+            comment_id: ID of comment to reply to
+            body: Reply text
+
+        Returns:
+            True if successful
+        """
+        try:
+            client = self.get_installation_client(installation_id)
+            repo = client.get_repo(repo_full_name)
+            pr = repo.get_pull(pr_number)
+
+            # Create reply to review comment
+            pr.create_review_comment_reply(comment_id, body)
+            return True
+
+        except Exception as e:
+            print(f"Error creating review comment reply: {e}")
+            return False
+
     def create_check_run(
         self,
         installation_id: int,

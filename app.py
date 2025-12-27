@@ -83,6 +83,98 @@ async def handle_review_command(pr_info: dict):
         return jsonify({"error": "Failed to process command"}), 500
 
 
+async def handle_comment_reply(event: dict):
+    """Handle reply to bot's comment - continue conversation."""
+    logger.info("Processing reply to bot's comment")
+
+    try:
+        payload = event["payload"]
+        comment = payload["comment"]
+        issue = payload["issue"]
+        repo = payload["repository"]
+        installation = payload["installation"]
+
+        # Get PR number from issue
+        pr_number = issue["number"]
+        reply_to_id = comment.get("in_reply_to_id")
+        user_question = comment["body"]
+
+        logger.info(f"Reply to comment {reply_to_id} in PR #{pr_number}: {user_question[:100]}")
+
+        # Get parent comment to understand context
+        parent_comment = await asyncio.to_thread(
+            github_client.get_review_comment, installation["id"], repo["full_name"], reply_to_id
+        )
+
+        if not parent_comment:
+            logger.error(f"Could not find parent comment {reply_to_id}")
+            return jsonify({"error": "Parent comment not found"}), 404
+
+        # Only respond if parent comment is from bot
+        if parent_comment["user"] not in ["MergeBlocker[bot]", "mergeblocker[bot]"]:
+            logger.info(f"Parent comment is from {parent_comment['user']}, not bot. Skipping.")
+            return jsonify({"message": "Not a reply to bot"}), 200
+
+        # Get PR context
+        pr_context = await asyncio.to_thread(github_client.get_pr_context, installation["id"], repo["full_name"], pr_number)
+
+        # Build prompt with conversation history
+        conversation_prompt = f"""User asked a follow-up question about this code review comment:
+
+**Original Bot Comment (at {parent_comment['path']}:{parent_comment['line']})**:
+{parent_comment['body']}
+
+**User's Question**:
+{user_question}
+
+**Code Context** (file: {parent_comment['path']}):
+```
+{_get_code_snippet_for_line(pr_context, parent_comment['path'], parent_comment['line'])}
+```
+
+Please provide a helpful, specific answer to the user's question. Be concise and refer to the code when relevant.
+"""
+
+        # Generate response via LLM
+        system_prompt = (
+            "You are a helpful code review assistant. "
+            "Answer user's questions about code review comments concisely and accurately."
+        )
+        reply_text = await code_analyzer.client.generate(user_prompt=conversation_prompt, system_prompt=system_prompt)
+
+        # Post reply
+        success = await asyncio.to_thread(
+            github_client.create_review_comment_reply,
+            installation["id"],
+            repo["full_name"],
+            pr_number,
+            reply_to_id,
+            f"🤖 {reply_text}",
+        )
+
+        if success:
+            logger.info(f"Posted reply to comment {reply_to_id} in PR #{pr_number}")
+            return jsonify({"message": "Reply posted"}), 200
+        else:
+            logger.error("Failed to post reply")
+            return jsonify({"error": "Failed to post reply"}), 500
+
+    except Exception as e:
+        logger.error(f"Error handling comment reply: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+def _get_code_snippet_for_line(pr_context: dict, file_path: str, line: int, context_lines: int = 5) -> str:
+    """Get code snippet around specific line."""
+    for file in pr_context["files"]:
+        if file["filename"] == file_path and file["patch"]:
+            # Extract relevant lines from patch
+            patch_lines = file["patch"].split("\n")
+            # Simple heuristic: return patch around the line
+            return "\n".join(patch_lines[: min(len(patch_lines), context_lines * 2)])
+    return "(code not available)"
+
+
 async def handle_pr_opened(pr_info: dict):
     """Handle PR opened event - post welcome comment."""
     logger.info(f"New PR opened: #{pr_info['pr_number']} in {pr_info['repo_full_name']}")
@@ -132,6 +224,11 @@ async def webhook():
 
     # Handle comment commands (e.g., @MergeBlocker review)
     if webhook_handler.is_comment_event(event):
+        # Check if this is a reply to bot's comment (conversation)
+        if webhook_handler.is_reply_to_comment(event):
+            logger.info("Detected reply to comment")
+            return await handle_comment_reply(event)
+
         should_process, reason, commands = webhook_handler.should_process_comment_command(event)
         if should_process and "review" in commands:
             logger.info("Processing review command from comment")
