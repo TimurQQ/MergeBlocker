@@ -40,22 +40,25 @@ docker compose -f docker-compose.prod.yaml down || true
 echo "🚀 Запускаем контейнеры с проверкой обновлений..."
 docker compose -f docker-compose.prod.yaml up -d --force-recreate --pull always
 
-# Ждем запуска сервиса
-echo "⏳ Ждем запуска сервиса..."
-sleep 15
+# Ждем запуска сервиса с умной проверкой готовности
+echo "⏳ Ждем запуска сервиса (max 30s)..."
+SECONDS=0
+until curl -sf http://localhost:8002/ > /dev/null 2>&1; do
+    if [ $SECONDS -ge 30 ]; then
+        echo ""
+        echo "❌ Ошибка запуска MergeBlocker (timeout 30s)"
+        echo "📋 Логи сервиса:"
+        docker compose -f docker-compose.prod.yaml logs mergeblocker
+        exit 1
+    fi
+    echo -n "."
+    sleep 1
+done
 
-# Проверяем здоровье сервиса
-echo "🔍 Проверяем состояние сервиса..."
-if curl -f http://localhost:8002/ > /dev/null 2>&1; then
-    echo "✅ MergeBlocker успешно запущен!"
-    echo "📊 Статус контейнеров:"
-    docker compose -f docker-compose.prod.yaml ps
-else
-    echo "❌ Ошибка запуска MergeBlocker"
-    echo "📋 Логи сервиса:"
-    docker compose -f docker-compose.prod.yaml logs mergeblocker
-    exit 1
-fi
+echo ""
+echo "✅ MergeBlocker успешно запущен за $SECONDS секунд!"
+echo "📊 Статус контейнеров:"
+docker compose -f docker-compose.prod.yaml ps
 
 # Очищаем неиспользуемые образы
 echo "🧹 Очищаем неиспользуемые образы..."
