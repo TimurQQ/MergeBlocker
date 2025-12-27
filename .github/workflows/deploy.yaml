@@ -23,7 +23,6 @@ jobs:
 
   build-test:
     runs-on: ubuntu-latest
-    needs: test
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
@@ -49,7 +48,6 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     steps:
       - uses: actions/checkout@v4
@@ -77,7 +75,7 @@ jobs:
 
   deploy:
     runs-on: ubuntu-latest
-    needs: build  # Ждёт завершения build (образ уже в GHCR)
+    needs: [test, build]  # Ждёт завершения test И build
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     steps:
       - uses: actions/checkout@v4
