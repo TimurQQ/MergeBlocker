@@ -14,41 +14,43 @@ class GitHubClient:
     def __init__(self):
         self.app_id = Config.GITHUB_APP_ID
         self.private_key = Config.get_private_key()
-        self._installation_clients: Dict[int, Github] = {}
+        # Cache the integration object (doesn't expire)
+        self._integration = GithubIntegration(auth=Auth.AppAuth(self.app_id, self.private_key))
 
     def get_installation_client(self, installation_id: int) -> Github:
-        """Get or create a GitHub client for a specific installation."""
-        if installation_id not in self._installation_clients:
+        """
+        Get a GitHub client for a specific installation.
+
+        Note: Creates a fresh client each time to avoid token expiration issues.
+        GitHub App installation tokens expire after 1 hour.
+        """
+        try:
+            print(f"Creating fresh client for installation_id: {installation_id}")
+
+            # Get a fresh access token (expires in 1 hour)
+            access_token = self._integration.get_access_token(installation_id).token
+            print(f"✅ Obtained fresh access token for installation {installation_id}")
+
+            # Return new client with fresh token
+            return Github(access_token)
+
+        except Exception as e:
+            print(f"❌ Error creating installation client: {e}")
+            print(f"App ID: {self.app_id}")
+            print(f"Installation ID: {installation_id}")
+
+            # Try to list available installations for debugging
             try:
-                print(f"Creating client for installation_id: {installation_id}")
-                print(f"Using GitHub App ID: {self.app_id}")
-                print(f"Private key length: {len(self.private_key)} chars")
+                installations = self._integration.get_installations()
+                available_ids = [inst.id for inst in installations]
+                print(f"Available installation IDs: {available_ids}")
 
-                auth = Auth.AppAuth(self.app_id, self.private_key)
-                integration = GithubIntegration(auth=auth)
+                if installation_id not in available_ids:
+                    print(f"⚠️  Installation {installation_id} not found in available installations!")
+            except Exception as list_error:
+                print(f"Could not list installations: {list_error}")
 
-                # Try to list installations for debugging
-                try:
-                    installations = integration.get_installations()
-                    available_ids = [inst.id for inst in installations]
-                    print(f"Available installation IDs: {available_ids}")
-
-                    if installation_id not in available_ids:
-                        print(f"WARNING: installation_id {installation_id} not in available installations!")
-                        print("This means the GitHub App is not installed in this repository.")
-                except Exception as list_error:
-                    print(f"Could not list installations: {list_error}")
-
-                access_token = integration.get_access_token(installation_id).token
-                print(f"Successfully obtained access token for installation {installation_id}")
-                self._installation_clients[installation_id] = Github(access_token)
-            except Exception as e:
-                print(f"Error creating installation client: {e}")
-                print(f"App ID: {self.app_id}")
-                print(f"Installation ID: {installation_id}")
-                raise
-
-        return self._installation_clients[installation_id]
+            raise
 
     def get_pr_context(self, installation_id: int, repo_full_name: str, pr_number: int) -> Dict[str, Any]:
         """
