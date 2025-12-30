@@ -376,6 +376,7 @@ async def process_pr_review(pr_info: dict):
                 {
                     "path": comment["path"],
                     "line": comment["line"],
+                    "side": "RIGHT",  # RIGHT = new version, LEFT = old version
                     "body": review_formatter.format_inline_comment(comment),
                 }
             )

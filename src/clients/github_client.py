@@ -201,7 +201,8 @@ class GitHubClient:
             head_sha: SHA of the head commit
             body: Review body/summary
             comments: List of inline comments with format:
-                      [{'path': str, 'line': int, 'body': str}, ...]
+                      [{'path': str, 'line': int, 'side': str, 'body': str}, ...]
+                      side can be 'LEFT' (old version) or 'RIGHT' (new version)
             event: Review event type (COMMENT, APPROVE, REQUEST_CHANGES)
 
         Returns:
@@ -219,11 +220,13 @@ class GitHubClient:
             review_comments = []
             if comments:
                 for i, comment in enumerate(comments):
-                    print(f"  Comment #{i+1}: {comment['path']}:{comment['line']}")
+                    side = comment.get("side", "RIGHT")  # RIGHT = new version (default)
+                    print(f"  Comment #{i+1}: {comment['path']}:{comment['line']} (side={side})")
                     review_comments.append(
                         {
                             "path": comment["path"],
                             "line": comment["line"],
+                            "side": side,
                             "body": comment["body"],
                         }
                     )
