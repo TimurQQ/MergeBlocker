@@ -208,6 +208,9 @@ class GitHubClient:
             True if successful, False otherwise
         """
         try:
+            print(f"🔄 Creating review for PR #{pr_number} in {repo_full_name}")
+            print(f"📊 Inline comments count: {len(comments) if comments else 0}")
+
             client = self.get_installation_client(installation_id)
             repo = client.get_repo(repo_full_name)
             pr = repo.get_pull(pr_number)
@@ -215,7 +218,8 @@ class GitHubClient:
             # Prepare review comments
             review_comments = []
             if comments:
-                for comment in comments:
+                for i, comment in enumerate(comments):
+                    print(f"  Comment #{i+1}: {comment['path']}:{comment['line']}")
                     review_comments.append(
                         {
                             "path": comment["path"],
@@ -226,22 +230,33 @@ class GitHubClient:
 
             # Create review
             if review_comments:
+                print(f"✅ Creating review with {len(review_comments)} inline comments")
                 pr.create_review(
                     body=body,
                     event=event,
                     comments=review_comments,
                 )
             else:
+                print("✅ Creating review without inline comments (summary only)")
                 # Just a comment without inline reviews
                 pr.create_review(
                     body=body,
                     event=event,
                 )
 
+            print("✅ Review created successfully")
             return True
 
         except Exception as e:
-            print(f"Error creating review: {e}")
+            print(f"❌ Error creating review: {e}")
+            traceback.print_exc()
+
+            # Log details about comments that failed
+            if comments:
+                print("❌ Failed comments details:")
+                for i, comment in enumerate(comments):
+                    print(f"  #{i+1}: {comment.get('path')}:{comment.get('line')} - {comment.get('body', '')[:50]}...")
+
             return False
 
     def create_comment(self, installation_id: int, repo_full_name: str, pr_number: int, body: str) -> bool:
