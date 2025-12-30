@@ -110,6 +110,12 @@ Show the optimized code with explanation."
 5. Be SPECIFIC and ACTIONABLE - show exact code to write, not vague suggestions
 6. If no critical issues, use empty array: "critical_issues": []
 7. Escape all quotes and newlines in JSON properly
+8. **IMPORTANT - Line numbers**: The diffs show line numbers for the NEW version of the file.
+   - Lines like "26: +  code" mean line 26 in the new file (after changes)
+   - Lines like "30:   code" mean line 30 in the new file (context, unchanged)
+   - Lines like "-  code" are REMOVED and don't exist in the new file
+   - ALWAYS use the number shown before the colon as the "line" value
+   - Example: For "26: +  private var x = 0", use "line": 26
 
 **BAD EXAMPLE** (vague, no code):
 "body": "Consider adding error handling" ❌

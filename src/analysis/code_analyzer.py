@@ -78,6 +78,53 @@ class CodeAnalyzer:
             logger.error(f"Error calling LLM: {e}", exc_info=True)
             return self._get_error_response()
 
+    def _add_line_numbers_to_patch(self, patch: str) -> str:
+        """
+        Add absolute line numbers to patch for new file version.
+
+        Parses diff headers like @@ -28,1 +26,4 @@ and adds line numbers
+        to lines in the new version (context and added lines).
+
+        Args:
+            patch: Git diff patch
+
+        Returns:
+            Patch with line numbers like: "26: +  private var currentIndex = 0"
+        """
+        import re
+
+        lines = patch.split("\n")
+        result = []
+        current_new_line = 0
+
+        for line in lines:
+            # Parse diff header: @@ -old_start,old_count +new_start,new_count @@
+            header_match = re.match(r"^@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,\d+)?\s+@@", line)
+            if header_match:
+                current_new_line = int(header_match.group(1))
+                result.append(line)
+                continue
+
+            # Skip lines that don't have line content
+            if not line or line.startswith("\\"):
+                result.append(line)
+                continue
+
+            # Process diff lines
+            if line.startswith("-"):
+                # Removed line - no line number in new version
+                result.append(line)
+            elif line.startswith("+"):
+                # Added line - has line number in new version
+                result.append(f"{current_new_line}: {line}")
+                current_new_line += 1
+            else:
+                # Context line (starts with space or no prefix) - has line number in new version
+                result.append(f"{current_new_line}: {line}")
+                current_new_line += 1
+
+        return "\n".join(result)
+
     def _build_review_prompt(self, pr: Dict[str, Any], files: List[Dict[str, Any]], agents_md: str = None) -> str:
         """Build prompt for detailed review with all changed files."""
 
@@ -85,13 +132,19 @@ class CodeAnalyzer:
         # Include all files with full patches
         for file in files:
             if file["patch"]:
+                # Add line numbers to patch for clarity
+                patch_with_lines = self._add_line_numbers_to_patch(file["patch"])
+
                 file_changes.append(
                     f"""
 ### File: {file['filename']} ({file['status']})
 Changes: +{file['additions']} -{file['deletions']}
 
+**Note**: Line numbers shown are for the NEW version of the file (after changes).
+Lines marked with + are additions, lines marked with - are deletions (no line number in new file).
+
 ```diff
-{file['patch']}
+{patch_with_lines}
 ```
 """
                 )
