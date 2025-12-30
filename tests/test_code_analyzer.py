@@ -42,27 +42,30 @@ class TestCodeAnalyzer:
 
     def test_add_line_numbers_to_patch_with_context(self, analyzer):
         """Test adding line numbers with context lines."""
-        patch = """@@ -10,5 +10,6 @@
- class MyClass {
-     private var x = 1
-+    private var y = 2
-     private var z = 3
-
-     fun method() {"""
+        # Note: Empty line has a space prefix (Git diff format for empty context lines)
+        patch = (
+            "@@ -10,5 +10,6 @@\n"
+            " function calculate() {\n"
+            "     const x = 1;\n"
+            "+    const y = 2;\n"
+            "     const z = 3;\n"
+            " \n"  # Empty line with space prefix
+            "     return x + z;"
+        )
 
         result = analyzer._add_line_numbers_to_patch(patch)
 
         # Context lines should have numbers
-        assert "10:  class MyClass {" in result
-        assert "11:      private var x = 1" in result
+        assert "10:  function calculate() {" in result
+        assert "11:      const x = 1;" in result
 
         # Added line should have correct number
-        assert "12: +    private var y = 2" in result
+        assert "12: +    const y = 2;" in result
 
         # Following context should continue numbering
-        assert "13:      private var z = 3" in result
-        assert "14:      " in result
-        assert "15:      fun method() {" in result
+        assert "13:      const z = 3;" in result
+        assert "14:  " in result  # Empty line with space prefix
+        assert "15:      return x + z;" in result
 
     def test_add_line_numbers_to_patch_multiple_hunks(self, analyzer):
         """Test adding line numbers to patch with multiple hunks."""
@@ -119,17 +122,20 @@ class TestCodeAnalyzer:
 
     def test_add_line_numbers_preserves_empty_lines(self, analyzer):
         """Test that empty lines and special markers are preserved."""
-        patch = """@@ -10,4 +10,4 @@
- line 10
-
- line 12
-\\ No newline at end of file"""
+        # Note: Empty line has a space prefix (Git diff format)
+        patch = (
+            "@@ -10,4 +10,4 @@\n"
+            " line 10\n"
+            " \n"  # Empty line with space prefix
+            " line 12\n"
+            "\\ No newline at end of file"
+        )
 
         result = analyzer._add_line_numbers_to_patch(patch)
 
         # Empty line should still get a number
         assert "10:  line 10" in result
-        assert "11:  " in result  # Empty context line
+        assert "11:  " in result  # Empty context line with space prefix
         assert "12:  line 12" in result
 
         # Special marker should be preserved without number
@@ -137,24 +143,27 @@ class TestCodeAnalyzer:
         assert "13: \\" not in result  # No number for special markers
 
     def test_add_line_numbers_real_example(self, analyzer):
-        """Test with real-world example from the issue."""
-        patch = """@@ -28,1 +26,4 @@ class SmartMatchingViewModel(
--    private val userId: Int = prefs.getInt(USER_ID_KEY, -1)
-+    private var currentIndex = 0
-+    private val loadThreshold = 20
-+    private val pageSize = 200
-
-@@ -31,0 +32,1 @@ class SmartMatchingViewModel(
-+        loadPets(isRefresh = true)"""
+        """Test with real-world example - multiple hunks with additions and deletions."""
+        # Note: Empty line has a space prefix (Git diff format)
+        patch = (
+            "@@ -28,1 +26,4 @@ class DataManager {\n"
+            "-    this.userId = getUserId();\n"
+            "+    this.currentIndex = 0;\n"
+            "+    this.loadThreshold = 20;\n"
+            "+    this.pageSize = 200;\n"
+            " \n"  # Empty line with space prefix
+            "@@ -31,0 +32,1 @@ class DataManager {\n"
+            "+        this.loadData(true);"
+        )
 
         result = analyzer._add_line_numbers_to_patch(patch)
 
         # First hunk: line 28 removed, lines 26-28 added
-        assert "-    private val userId" in result
-        assert "26: +    private var currentIndex = 0" in result
-        assert "27: +    private val loadThreshold = 20" in result
-        assert "28: +    private val pageSize = 200" in result
-        assert "29:      " in result  # Context line after additions
+        assert "-    this.userId = getUserId();" in result
+        assert "26: +    this.currentIndex = 0;" in result
+        assert "27: +    this.loadThreshold = 20;" in result
+        assert "28: +    this.pageSize = 200;" in result
+        assert "29:  " in result  # Context line after additions (empty line with space)
 
         # Second hunk: line 32 added
-        assert "32: +        loadPets(isRefresh = true)" in result
+        assert "32: +        this.loadData(true);" in result

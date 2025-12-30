@@ -105,8 +105,8 @@ class CodeAnalyzer:
                 result.append(line)
                 continue
 
-            # Skip lines that don't have line content
-            if not line or line.startswith("\\"):
+            # Skip special markers (like "\ No newline at end of file")
+            if line.startswith("\\"):
                 result.append(line)
                 continue
 
@@ -119,7 +119,8 @@ class CodeAnalyzer:
                 result.append(f"{current_new_line}: {line}")
                 current_new_line += 1
             else:
-                # Context line (starts with space or no prefix) - has line number in new version
+                # Context line (starts with space, empty, or no prefix) - has line number in new version
+                # Empty lines in diff are also valid context lines
                 result.append(f"{current_new_line}: {line}")
                 current_new_line += 1
 
