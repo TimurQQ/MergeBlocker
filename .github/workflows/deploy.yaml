@@ -3,6 +3,7 @@ name: Deploy MergeBlocker
 permissions:
   contents: read
   packages: write
+  id-token: write
 
 on:
   push:
