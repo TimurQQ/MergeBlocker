@@ -11,7 +11,7 @@ from typing import Optional
 import httpx
 
 from src.config import Config
-from src.utils.async_retry import async_retry_on_http_errors
+from src.utils.async_retry import LLMRetryableError, async_retry_on_http_errors
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ class LLMClient:
             f"thinking_mode={'enabled' if self.enable_thinking else 'disabled'}"
         )
 
-    @async_retry_on_http_errors(max_attempts=3, wait_seconds=2.0)
+    @async_retry_on_http_errors(max_attempts=5, wait_min=2.0, wait_max=30.0)
     async def generate(self, user_prompt: str, system_prompt: str) -> str:  # noqa: C901
         """
         Асинхронно генерирует ответ через Anthropic Messages API.
@@ -135,6 +135,10 @@ class LLMClient:
                     error_text = response.text[:500]  # Ограничиваем длину лога
                     error_msg = f"API error {response.status_code}: {error_text}"
                     logger.error(f"❌ {error_msg}")
+                    # 429 (rate-limit/inflight) и 5xx — временные, ретраим с back-off.
+                    # Прочие 4xx (400/401/403/404) — фейлим сразу, повторять бессмысленно.
+                    if response.status_code == 429 or response.status_code >= 500:
+                        raise LLMRetryableError(error_msg)
                     raise Exception(error_msg)
 
                 data = response.json()
